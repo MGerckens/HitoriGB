@@ -6,6 +6,6 @@ A to shade in a square, B to circle it, Select to reveal solution.
 
 
 To play:
--Download gbdk-2020 
--Run "lcc.exe -o hitori.gb [path]\main.c"
--Open the resulting hitori.gb in an emulator
+- Download gbdk-2020 
+- Run "lcc.exe -o hitori.gb [path]\main.c"
+- Open the resulting hitori.gb in an emulator
