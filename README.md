@@ -1,6 +1,8 @@
 # HitoriGB
 
-Extremely unfinished, only allows 6x6 boards. All boards *should* have at least one solution. A to shade in a square, B to circle it, Select to reveal solution. 
+Extremely unfinished, only allows 6x6 boards. All boards *should* have at least one solution. 
+
+A to shade in a square, B to circle it, Select to reveal solution. 
 
 
 To play:
