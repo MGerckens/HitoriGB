@@ -1,3 +1,4 @@
+//Basic queue of uint8
 
 typedef struct node {
     uint8_t val;
@@ -17,7 +18,7 @@ void enqueue(node_t **head, uint8_t val) {
 
 uint8_t dequeue(node_t **head) {
     node_t *current, *prev = NULL;
-    uint8_t retval =255; //unlikely to get this big on a GB screen
+    uint8_t retval = 255; //unlikely to get this big on a GB screen
 
     if (*head == NULL) { return retval; }
 
