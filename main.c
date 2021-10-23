@@ -14,8 +14,6 @@
 #include "board_tiles.h"
 #include "game_board_layout.h"
 #include "cursor_tile.h"
-#include "queues.h"
-#include "latinsquare.h"
 #include "generator.h"
 
 #define SIZE_INDICATOR_X 9
