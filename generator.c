@@ -72,7 +72,7 @@ generate:
         //printf("num = %d, starting new square\n",num);
     }
     //printf("starting end check\n");
-	//if(!has_single_white_region){goto generate;}
+
     while(num < n){
 		set_bkg_tile_xy(0,6,1);
         for(i = 0; i < n; i++){
@@ -88,7 +88,7 @@ generate:
             }
         }
     }
-	
+	if(!has_single_white_region){goto generate;}
 	set_bkg_tile_xy(0,9,1);
     
     uint8_t randnum, dupe, flag = 0;
