@@ -9,7 +9,8 @@
 #include "latinsquare.h"
 #include "queues.h"
 
-uint8_t num,shade_count;
+uint8_t num,shade_count,n;
+uint8_t *randnums, *colnums, *rownums;
 enum {EMPTY, BLACK, CIRCLE};
 bool impossible = false;
 
@@ -19,14 +20,30 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial);
 static void circle_square_xy(uint8_t x, uint8_t y);
 static void circle_square(uint8_t i);
 static bool has_single_white_region();
-static void remove_splits();
+static bool remove_splits(uint8_t coord);
 static bool surrounded_edges();
 static uint8_t fill(uint8_t xi, uint8_t yi);
+static uint8_t best_duplicate(uint8_t coord);
+
+void shuffle(uint8_t *array, size_t n)
+{
+	uint8_t	i,j,t;
+	for (i = n-1; i > 0; i--) 
+	{
+	  j = (uint8_t)(arand()%i);
+	  t = array[j];
+	  array[j] = array[i];
+	  array[i] = t;
+	}
+}
 
 void generate_board()
 {
-    uint8_t i, j, coord;
-    uint8_t n = board_size * board_size;
+    uint8_t i, j, x, y;
+    n = board_size * board_size;
+	rownums = (uint8_t *)calloc(n,sizeof(uint8_t));
+	colnums = (uint8_t *)calloc(n,sizeof(uint8_t));
+	randnums = (uint8_t *)calloc(board_size,sizeof(uint8_t));
 generate:
 	set_bkg_tile_xy(0,3,0);
 	set_bkg_tile_xy(0,4,0);
@@ -36,7 +53,7 @@ generate:
 	set_bkg_tile_xy(0,8,0);
 	//set_bkg_tile_xy(0,9,0);
     shade_count = 0;
-    num = 0;
+    num = n;
     impossible = false;
     
     //initialize board and solution
@@ -50,11 +67,10 @@ generate:
      * white squares), until we can lay no more blacks. */
 
     for(j = 0; j < n; j++) { //by the end, every square should be black or circled
-        i = arand() % (board_size*board_size);
+        i = arand() % n;
         if ((solution[i] == CIRCLE) || (solution[i] == BLACK)) {
-            //printf("generator skipping (%d,%d): %s\n", i%board_size, i/board_size,
-            //      (solution[i] == CIRCLE) ? "CIRCLE" : "BLACK");
-            continue; /* solver knows this must be one or the other already. */
+            if(solution[i+2] == EMPTY){i += 2;}
+            else{continue;} /* solver knows this must be one or the other already. */
         }
 
         /* Add a random black cell... */
@@ -62,57 +78,72 @@ generate:
         if(!blacken_square(i/board_size, i%board_size, true)){continue;}
 		set_bkg_tile_xy(0,4,1);
 		
-        //remove_splits();
-        //set_bkg_tile_xy(0,5,1);
         if (impossible) {
             //printf("generator made impossible, restarting...\n");
             goto generate;
         }
-        //printBoard();
-        //printf("num = %d, starting new square\n",num);
-    }
-    //printf("starting end check\n");
 
-    while(num < n){
+    }
+    for(i = 0; i < n; i++){
 		set_bkg_tile_xy(0,6,1);
-        for(i = 0; i < n; i++){
-            if(solution[i] == EMPTY){
-                if(!blacken_square(i/board_size, i%board_size, true)){
-					circle_square(i);
-				}
-                //remove_splits();
-            }
-            if (impossible) {
-                //printf("generator made impossible, restarting...\n");
-                goto generate;
-            }
-        }
+		if(solution[i] == EMPTY){
+			surrounded_edges();
+			if(remove_splits(i)){continue;}
+			if(!blacken_square(i/board_size, i%board_size, true)){
+				circle_square(i);
+			}
+			//remove_splits();
+			
+			if (impossible) {
+				//printf("generator made impossible, restarting...\n");
+				goto generate;
+			}
+		}
     }
 	if(!has_single_white_region){goto generate;}
 	set_bkg_tile_xy(0,9,1);
+	
     
-    uint8_t randnum, dupe, flag = 0;
-    for(i = 0; i < board_size; i++){
-		set_bkg_tile_xy(0,7,flag);
-		flag^=1;
-        for (j = 0; j < board_size; ++j) {
-            if(solution[i*board_size + j] != BLACK){continue;}
-            while(true){
-                randnum = arand();
-                if(randnum & 0x80){
-                    randnum %= board_size;
-                    coord = randnum*board_size + j;
-                }else{
-                    randnum %= board_size;
-                    coord = i*board_size + randnum;
-                }
-                dupe = board[coord];
-                if(solution[coord] != BLACK){break;}
-            }
-            board[i*board_size + j] = dupe;
-        }
-    }
-	//surrounded_edges();
+    for(i = 0; i < n; i++){
+		if(solution[i] == BLACK){continue;}
+		j = board[i];
+		x = i/board_size;
+		y = i%board_size;
+		rownums[y*board_size + j-1]++;
+		colnums[x*board_size + j-1]++;
+	}
+	
+	for(i = 0; i < n; i++){
+		if(solution[i] != BLACK){continue;}
+		board[i] = best_duplicate(i);
+	}
+	set_bkg_tile_xy(0,3,0x15);
+	set_bkg_tile_xy(0,4,0x15);
+	set_bkg_tile_xy(0,5,0x15);
+	set_bkg_tile_xy(0,6,0x15);
+	set_bkg_tile_xy(0,7,0x15);
+	set_bkg_tile_xy(0,8,0x15);
+	set_bkg_tile_xy(0,9,0x15);
+}
+
+uint8_t best_duplicate(uint8_t coord){
+	uint8_t i,j, x=coord/board_size, y=coord%board_size;
+	for(i = 0; i < board_size; i++){randnums[i] = i+1;}
+	shuffle(randnums, board_size);
+	for(i = 0; i < board_size; i++){
+		j = randnums[i];
+		if(rownums[y*board_size + j-1] == 1 && colnums[x*board_size + j-1] == 1){goto found;}
+	}
+	for(i = 0; i < board_size; i++){
+		j = randnums[i];
+		if(rownums[y*board_size + j-1] || colnums[x*board_size + j-1]){goto found;}
+	}
+	return 0; //should not happen
+	
+found:
+	rownums[y*board_size + j-1]++;
+	colnums[x*board_size + j-1]++;
+	return j;
 }
 
 static bool surrounded_edges(){ 
@@ -203,49 +234,44 @@ static bool surrounded_edges(){
     return retval;
 }
 
-static void remove_splits(){
-	if(shade_count <= 1){return;}
+static bool remove_splits(uint8_t coord){
+	if(shade_count <= 1){return true;}
 	set_bkg_tile_xy(0,7,1);
-    uint8_t coord;
-    if(!has_single_white_region()){
+    //uint8_t coord;
+    /*if(!has_single_white_region()){
         //printf("already split\n");
         impossible = true;
 		set_bkg_tile_xy(0,7,0);
-        return;
-    }
-    for(uint8_t x = 0; x < board_size; x++) {
-        for(uint8_t y = 0; y < board_size; y++) {
-            coord = x*board_size + y;
-            if(solution[coord] != EMPTY){continue;}
-            solution[coord] = BLACK;
-            if(!has_single_white_region()){
-                solution[coord] = EMPTY;
-                circle_square_xy(x,y);
-                continue;
-            }
-            solution[coord] = EMPTY;
-        }
-    }
+        return false;
+    }*/
+	//coord = x*board_size + y;
+	if(solution[coord] != EMPTY){return false;}
+	solution[coord] = BLACK;
+	if(!has_single_white_region()){
+		solution[coord] = EMPTY;
+		circle_square(coord);
+		return true;
+	}
+	solution[coord] = EMPTY;
 	set_bkg_tile_xy(0,7,0);
+	return false;
 }
 
 static bool has_single_white_region(){
 	if(!surrounded_edges()){return false;}
-	uint8_t sc=0;
-	for(uint8_t i = 0; i < board_size*board_size; i++){
+	uint8_t sc=0; //this could be tracked by other functions but it was buggy and this worked first try
+	for(uint8_t i = 0; i < n; i++){
 		if(solution[i] == BLACK){sc++;}
 	}
 	if(sc <= 1){return true;}
     uint8_t whitespace_count = (board_size * board_size) - sc;
-	set_bkg_tile_xy(5,1,whitespace_count/10);
-	set_bkg_tile_xy(6,1,whitespace_count%10);
+
     uint8_t fillres;
     if(solution[0] != BLACK){
         fillres = fill(0,0);
     }else{
         fillres = fill(0,1);
     }
-    //printf("%d >= %d\n",fillres,whitespace_count);
 	set_bkg_tile_xy(0,9,fillres >= whitespace_count);
     return fillres >= whitespace_count;
 }
@@ -286,13 +312,14 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns f
 		if(CHECK(solution[coord+board_size+1]) + CHECK(solution[coord+board_size-1]) + CHECK(solution[coord-board_size+1]) + CHECK(solution[coord-board_size-1]) >= 2){
 			if(!has_single_white_region()){
 				solution[coord] = EMPTY;
+				//num++;
 				circle_square(coord);
 				goto fail;
 			}
 		}
 		//if(!has_single_white_region()){goto fail;}
         shade_count++;
-        num++;
+        num--;
 
         if (x_low) {
             circle_square_xy(x - 1, y);
@@ -319,29 +346,8 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns f
     }
 }
 
-static void circle_square_xy(uint8_t x, uint8_t y){
+static inline void circle_square_xy(uint8_t x, uint8_t y){
 	circle_square(x*board_size + y);
-    /*if(!(INGRID(board_size,x,y))){return;}
-    if(solution[x*board_size + y] == BLACK) {
-        impossible = true;
-        //printf("impossible to circle %d, %d\n",x,y);
-        return;
-    }
-    else if(solution[x*board_size + y] == EMPTY) {
-        //printf("circling %d, %d\n",x,y);
-        num++;
-        solution[x*board_size + y] = CIRCLE;
-        for (uint8_t xt = 0; xt < board_size; xt++) {
-            if(xt != x && board[xt*board_size + y]==board[x*board_size + y]){
-                blacken_square(xt,y, false);
-            }
-        }
-        for (uint8_t yt = 0; yt < board_size; yt++) {
-            if(yt != y && board[x*board_size + yt]==board[x*board_size + y]){
-                blacken_square(x,yt, false);
-            }
-        }
-    }*/
 }
 
 static void circle_square(uint8_t i){
@@ -355,7 +361,7 @@ static void circle_square(uint8_t i){
     }
     else if(solution[i] == EMPTY) {
         //printf("circling %d, %d\n",x,y);
-        num++;
+        num--;
         solution[i] = CIRCLE;
         for (uint8_t xt = 0; xt < board_size; xt++) {
             if(xt != x && board[xt*board_size + y]==board[i]){
@@ -378,17 +384,17 @@ static uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
 	//if(shade_count == 1){return board_size*board_size - 1;}
 	//set_bkg_tile_xy(5,1,shade_count);
     //printf("started fill\n");
-    bool *reachable = (bool *)calloc(board_size*board_size,sizeof(bool));
+    bool *reachable = (bool *)calloc(n,sizeof(bool));
     node_t *Qx = NULL;			   //this version of SDCC doesn't support passing/returning structs
     node_t *Qy = NULL;			   //and this seemed easier than a queue of arrays
     //uint8_t count = 1;
     enqueue(&Qx, xi);
     enqueue(&Qy, yi);
-    uint8_t nx, ny, flag = 0;
+    uint8_t nx, ny;
 
     while(Qx!=NULL && Qy!=NULL){
 		//set_bkg_tile_xy(0,8,flag);
-		flag^=1;
+
         nx = dequeue(&Qx);
         ny = dequeue(&Qy);
 		//set_bkg_tile_xy(3,0,nx);
@@ -414,11 +420,9 @@ static uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
     free(Qx);
     free(Qy);
 	uint8_t j = 0;
-	for(uint8_t i = 0; i < board_size*board_size; i++){
+	for(uint8_t i = 0; i < n; i++){
 		if(reachable[i]){
 			j++;
-		}else{ 
-			set_bkg_tile_xy(i/board_size + 7, i%board_size + 6, 0);
 		}
 	}
     free(reachable);
