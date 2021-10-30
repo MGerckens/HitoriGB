@@ -8,6 +8,7 @@
 
 extern uint8_t board_size;
 extern uint8_t *board;
+
 extern void latin_generate();
 
 #endif //TESTPROJ_LATINSQUARE_H

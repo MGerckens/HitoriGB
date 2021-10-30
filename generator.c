@@ -10,7 +10,7 @@
 #include "queues.h"
 
 uint8_t num,shade_count,n;
-uint8_t *randnums, *colnums, *rownums;
+uint8_t *randlist, *colnums, *rownums;
 enum {EMPTY, BLACK, CIRCLE};
 bool impossible = false;
 
@@ -19,23 +19,11 @@ bool impossible = false;
 static bool blacken_square(uint8_t x, uint8_t y, bool initial);
 static void circle_square_xy(uint8_t x, uint8_t y);
 static void circle_square(uint8_t i);
-static bool has_single_white_region();
+bool has_single_white_region();
 static bool remove_splits(uint8_t coord);
 static bool surrounded_edges();
 static uint8_t fill(uint8_t xi, uint8_t yi);
 static uint8_t best_duplicate(uint8_t coord);
-
-void shuffle(uint8_t *array, size_t n)
-{
-	uint8_t	i,j,t;
-	for (i = n-1; i > 0; i--) 
-	{
-	  j = (uint8_t)(arand()%i);
-	  t = array[j];
-	  array[j] = array[i];
-	  array[i] = t;
-	}
-}
 
 void generate_board()
 {
@@ -43,7 +31,7 @@ void generate_board()
     n = board_size * board_size;
 	rownums = (uint8_t *)calloc(n,sizeof(uint8_t));
 	colnums = (uint8_t *)calloc(n,sizeof(uint8_t));
-	randnums = (uint8_t *)calloc(board_size,sizeof(uint8_t));
+	randlist = (uint8_t *)calloc(board_size,sizeof(uint8_t));
 generate:
 	set_bkg_tile_xy(0,3,0);
 	set_bkg_tile_xy(0,4,0);
@@ -51,7 +39,7 @@ generate:
 	set_bkg_tile_xy(0,6,0);
 	set_bkg_tile_xy(0,7,0);
 	set_bkg_tile_xy(0,8,0);
-	//set_bkg_tile_xy(0,9,0);
+	set_bkg_tile_xy(0,9,0);
     shade_count = 0;
     num = n;
     impossible = false;
@@ -127,15 +115,20 @@ generate:
 }
 
 uint8_t best_duplicate(uint8_t coord){
-	uint8_t i,j, x=coord/board_size, y=coord%board_size;
-	for(i = 0; i < board_size; i++){randnums[i] = i+1;}
-	shuffle(randnums, board_size);
+	uint8_t i,j, temp, randval, x=coord/board_size, y=coord%board_size;
+	for(i = 0; i < board_size; i++){randlist[i] = i+1;}
+	for(i = board_size-1; i > 0; i--){
+		randval = (uint8_t)arand() % board_size;
+		temp = randlist[i];
+		randlist[i] = randlist[randval];
+		randlist[randval] = temp;
+	}
 	for(i = 0; i < board_size; i++){
-		j = randnums[i];
+		j = randlist[i];
 		if(rownums[y*board_size + j-1] == 1 && colnums[x*board_size + j-1] == 1){goto found;}
 	}
 	for(i = 0; i < board_size; i++){
-		j = randnums[i];
+		j = randlist[i];
 		if(rownums[y*board_size + j-1] || colnums[x*board_size + j-1]){goto found;}
 	}
 	return 0; //should not happen
@@ -193,7 +186,6 @@ static bool surrounded_edges(){
 	        break;
 	    case 4:
 	        circle_square(i-1);
-	            
 	    }
 	    switch(bottom){
 	    case 1:
@@ -257,7 +249,7 @@ static bool remove_splits(uint8_t coord){
 	return false;
 }
 
-static bool has_single_white_region(){
+bool has_single_white_region(){
 	if(!surrounded_edges()){return false;}
 	uint8_t sc=0; //this could be tracked by other functions but it was buggy and this worked first try
 	for(uint8_t i = 0; i < n; i++){
@@ -272,7 +264,7 @@ static bool has_single_white_region(){
     }else{
         fillres = fill(0,1);
     }
-	set_bkg_tile_xy(0,9,fillres >= whitespace_count);
+	//set_bkg_tile_xy(0,9,fillres >= whitespace_count);
     return fillres >= whitespace_count;
 }
 
