@@ -27,23 +27,22 @@ uint8_t cursor[2] = {0,0};
 uint8_t *board; 
 uint8_t *marks;
 uint8_t *solution;
+bool restarting = false;
 
-void process_input();
-//bool generate_board();
-//bool check_placement(uint8_t xi, uint8_t yi);
-//uint8_t fill(uint8_t xi, uint8_t yi);
+bool process_input();
 void title_input();
 
 void main(void)
 {
     DISPLAY_ON;
 	SPRITES_8x8;
-	set_bkg_data(0,45,title_tiles); //load title screen
+restart:
+	set_bkg_data(0,54,title_tiles); //load title screen
 	set_bkg_tiles(0,0,20,18,title_layout);
 	SHOW_BKG;
-	while(!(joypad()&J_START)){
-		title_input();
-	}; //wait on title screen
+	do{}while(joypad() & J_START); //wait until start is released
+	do{title_input();}while(!(joypad() & J_START));//wait on title screen
+	HIDE_BKG;
 	num_tiles = board_size*board_size;
 	
 	board = (uint8_t *)calloc( board_size, board_size*sizeof(uint8_t)); //dynamically allocate all arrays based on board size
@@ -52,7 +51,7 @@ void main(void)
 	
 	set_bkg_data(0,22,board_tiles);
 	set_bkg_tiles(0,0,20,18,board_layout);
-	
+	SHOW_BKG;
 	initarand(clock());
 	do{generate_board();}while(!has_single_white_region()); //i have no idea why these boards keep getting through this far
 	set_bkg_tile_xy(0,6,0x15); //clean up stray tiles
@@ -72,29 +71,36 @@ void main(void)
 	}
 	
 	while(1) {
-		process_input();
+		if(!process_input()){
+			HIDE_SPRITES;
+			HIDE_BKG;
+			goto restart;
+		}
         wait_vbl_done();
     }
 }
 
+#define BUTTON_DOWN(x) ((input & (x)) && !(pressed & (x)))
 void title_input(){
 	uint8_t input = joypad();
 	static uint8_t pressed = 0;
-	if((input & J_LEFT) && (board_size > 5) && !(pressed & J_LEFT)){
+	if(BUTTON_DOWN(J_LEFT) && board_size > 5){
 		board_size--;
 	}
-	if((input & J_RIGHT) && (board_size < 10) && !(pressed & J_RIGHT)){
+	if(BUTTON_DOWN(J_RIGHT) && board_size < 10){
 		board_size++;
 	}
 	set_bkg_tile_xy(9,9,board_size+10);
 	pressed = input;
 }
 
-#define BUTTON_DOWN(x) ((input & (x)) && !(pressed & (x)))
+
 #define CHECK(x) ((x==1) ? 1 : 0)
-void process_input(){
+bool process_input(){
+
 	uint8_t input = joypad();
 	uint8_t coord;
+	bool retval = true;
 	static uint8_t pressed = 0;
 	static bool solution_up = false;
 	if(BUTTON_DOWN(J_RIGHT)){ //move in the specified direction, with bounds checking
@@ -167,8 +173,7 @@ void process_input(){
 			}
 			solution_up = false;
 		}
-	}
-	else if(BUTTON_DOWN(J_SELECT)){
+	}else if(BUTTON_DOWN(J_SELECT)){
 		bool is_correct = true;
 		for(uint8_t i = 0; i < num_tiles; i++){
 			if(CHECK(solution[i]) != CHECK(marks[i])){
@@ -177,8 +182,11 @@ void process_input(){
 			}
 		}
 		set_bkg_tile_xy(0,0,is_correct);
-		
+	}else if(BUTTON_DOWN(J_START)){
+		restarting = true;
+		retval = false;
 	}
+	
 	move_sprite(0, (cursor[0]+OFFSET_X+1)*8,(cursor[1]+OFFSET_Y+2)*8);
 	if(marks[cursor[0]*board_size + cursor[1]] == BLACK){
 		set_sprite_tile(0,1);
@@ -186,4 +194,5 @@ void process_input(){
 		set_sprite_tile(0,0);
 	}
 	pressed = input;	
+	return retval;
 }
