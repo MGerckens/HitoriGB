@@ -1,5 +1,4 @@
 // Max Gerckens 10/2021
-// Board generation algorithm uses portions from GNOME and Simon Tatham's implementations
 
 #include <gb/gb.h>
 #include <stdint.h>
@@ -24,6 +23,7 @@ uint8_t board_size = 5;
 uint8_t num_tiles;
 
 enum {EMPTY, BLACK, CIRCLE};
+const uint8_t WHITE = 41;
 uint8_t cursor[2] = {0,0};
 uint8_t *board; 
 uint8_t *marks;
@@ -38,7 +38,7 @@ void main(void)
     DISPLAY_ON;
 	SPRITES_8x8;
 restart:
-	set_bkg_data(0,54,title_tiles); //load title screen
+	set_bkg_data(0,59,title_tiles); //load title screen
 	set_bkg_tiles(0,0,20,18,title_layout);
 	SHOW_BKG;
 	do{}while(joypad() & J_START); //wait until start is released
@@ -46,26 +46,32 @@ restart:
 	HIDE_BKG;
 	num_tiles = board_size*board_size; //used in a lot of loops
 	
+	
 	board = (uint8_t *)calloc( board_size, board_size*sizeof(uint8_t)); //dynamically allocate all arrays based on board size
 	marks = (uint8_t *)malloc( num_tiles*sizeof(uint8_t)); 
 	solution = (uint8_t *)malloc( num_tiles*sizeof(uint8_t));
 	
-	set_bkg_data(0,22,board_tiles);
+	set_bkg_data(0,42,board_tiles);
 	set_bkg_tiles(0,0,20,18,board_layout);
 	SHOW_BKG;
+	set_bkg_tile_xy(0,0,33); //loading indicator
+	set_bkg_tile_xy(1,0,31);
+	set_bkg_tile_xy(2,0,32);
 	initarand(clock());
 	do{generate_board();}while(!has_single_white_region()); //i have no idea why these boards keep getting through this far
-	set_bkg_tile_xy(0,6,0x15); //clean up stray tiles caused by ^^ 
-	set_bkg_tile_xy(0,8,0x15);
-	set_bkg_tile_xy(0,9,0x15);
-	
+	set_bkg_tile_xy(0,6,WHITE); //clean up stray tiles caused by ^^ 
+	set_bkg_tile_xy(0,8,WHITE);
+	set_bkg_tile_xy(0,9,WHITE);
+	set_bkg_tile_xy(0,0,WHITE);
+	set_bkg_tile_xy(1,0,WHITE);
+	set_bkg_tile_xy(2,0,WHITE);
 	set_sprite_data(0,2,cursor_tile); //load cursor sprite
 	set_sprite_tile(0,0);
 	SHOW_SPRITES;
 	
 	for(int i = 0; i < num_tiles; i++){
 		marks[i] = 0; 
-		set_bkg_tile_xy((i/board_size)+OFFSET_X,(i%board_size)+OFFSET_Y,board[i]); //write generated board to screen
+		set_bkg_tile_xy((i%board_size)+OFFSET_X,(i/board_size)+OFFSET_Y,board[i]); //write generated board to screen
 	}
 	
 	while(1) { //main game loop
@@ -84,6 +90,7 @@ restart:
     }
 }
 
+#define TILE_NUM(x) (((x) <= 10) ? ((x) + 10) : ((x) + 43))
 #define BUTTON_DOWN(x) ((input & (x)) && !(pressed & (x)))
 void title_input(){
 	uint8_t input = joypad();
@@ -91,10 +98,10 @@ void title_input(){
 	if(BUTTON_DOWN(J_LEFT) && board_size > 5){ //update board size
 		board_size--;
 	}
-	if(BUTTON_DOWN(J_RIGHT) && board_size < 10){
+	if(BUTTON_DOWN(J_RIGHT) && board_size < 15){
 		board_size++;
 	}
-	set_bkg_tile_xy(9,9,board_size+10); //update display
+	set_bkg_tile_xy(9,9,TILE_NUM(board_size)); //update display
 	pressed = input;
 }
 
@@ -106,6 +113,16 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	bool retval = true;
 	static uint8_t pressed = 0;
 	static bool solution_up = false;
+	//static bool check_up = false;
+	static uint16_t last_check = 0;
+	if(time(NULL) >= last_check+2){
+		set_bkg_tile_xy(8,17,WHITE);
+		set_bkg_tile_xy(9,17,WHITE);
+		set_bkg_tile_xy(10,17,WHITE);
+		set_bkg_tile_xy(11,17,WHITE);
+		//check_up = false;
+		last_check = 0;
+	}
 	if(BUTTON_DOWN(J_RIGHT)){ //move in the specified direction, with bounds checking and wraparound
 		if(cursor[0] < board_size-1){
 			cursor[0]++;
@@ -135,7 +152,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		}
 	}
 	if(BUTTON_DOWN(J_A)){ //toggle shaded
-		coord = cursor[0]*board_size + cursor[1];
+		coord = cursor[1]*board_size + cursor[0];
 		if(!marks[coord]){
 			marks[coord] = BLACK;
 			set_bkg_tile_xy(cursor[0]+OFFSET_X,cursor[1]+OFFSET_Y, 0);
@@ -145,10 +162,10 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		}
 	}
 	if(BUTTON_DOWN(J_B)){ //toggle circled
-		coord = cursor[0]*board_size + cursor[1];
+		coord = cursor[1]*board_size + cursor[0];
 		if(!marks[coord]){
 			marks[coord] = CIRCLE;
-			set_bkg_tile_xy(cursor[0]+OFFSET_X,cursor[1]+OFFSET_Y, board[coord] + 10);
+			set_bkg_tile_xy(cursor[0]+OFFSET_X,cursor[1]+OFFSET_Y, board[coord] + 15);
 		}else if(marks[coord] == CIRCLE){
 			marks[coord] = EMPTY;
 			set_bkg_tile_xy(cursor[0]+OFFSET_X,cursor[1]+OFFSET_Y, board[coord]);
@@ -158,6 +175,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		restarting = true;
 		retval = false;
 	}else if(BUTTON_DOWN(J_SELECT)){ //checks solution, displays 1 if correct (will polish)
+	
 		bool is_correct = true;
 		for(uint8_t i = 0; i < num_tiles; i++){
 			if(CHECK(solution[i]) != CHECK(marks[i])){
@@ -165,23 +183,35 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 				break;
 			}
 		}
-		set_bkg_tile_xy(0,0,is_correct);
+		if(is_correct){
+			set_bkg_tile_xy(8,17,34);
+			set_bkg_tile_xy(9,17,35);
+			set_bkg_tile_xy(10,17,36);
+			set_bkg_tile_xy(11,17,37);
+		}else{
+			set_bkg_tile_xy(8,17,38);
+			set_bkg_tile_xy(9,17,39);
+			set_bkg_tile_xy(10,17,40);
+			set_bkg_tile_xy(11,17,WHITE);
+		}
+		last_check = time(NULL);
+	
 	}else if(BUTTON_DOWN(J_START)){ //display correct solution for debugging
 		if(!solution_up){			
 			for(uint8_t i = 0; i < board_size; i++){
 				for(uint8_t j = 0; j < board_size; j++){
-					coord = i*board_size + j;
+					coord = j*board_size + i;
 					//set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord]);
 					marks[coord]=solution[coord];
 					if(solution[coord] == BLACK){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,0);}
-					if(solution[coord] == CIRCLE){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord] + 10);}
+					if(solution[coord] == CIRCLE){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord] + 15);}
 				}
 			}
 			solution_up = true;
 		}else{
 			for(uint8_t i = 0; i < board_size; i++){
 				for(uint8_t j = 0; j < board_size; j++){
-					coord = i*board_size + j;
+					coord = j*board_size + i;
 					marks[coord] = EMPTY;
 					set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y, board[coord]);
 				}
@@ -191,7 +221,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	}
 	
 	move_sprite(0, (cursor[0]+OFFSET_X+1)*8,(cursor[1]+OFFSET_Y+2)*8); //move cursor sprite to correct location
-	if(marks[cursor[0]*board_size + cursor[1]] == BLACK){ //change cursor color when on a black square to keep it visible
+	if(marks[cursor[1]*board_size + cursor[0]] == BLACK){ //change cursor color when on a black square to keep it visible
 		set_sprite_tile(0,1);
 	}else{
 		set_sprite_tile(0,0);

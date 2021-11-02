@@ -17,7 +17,7 @@ bool impossible = false;
 #define INGRID(s,x,y) ((x) < (s) && (y) < (s))
 #define CHECK(x) (((x)==1) ? 1 : 0)
 static bool blacken_square(uint8_t x, uint8_t y, bool initial);
-static void circle_square_xy(uint8_t x, uint8_t y);
+static inline void circle_square_xy(uint8_t x, uint8_t y);
 static void circle_square(uint8_t i);
 bool has_single_white_region();
 static bool remove_splits(uint8_t coord);
@@ -57,7 +57,7 @@ generate:
 
         //update edges, the filling function has issues with them and it's really fast
 		//if(!surrounded_edges()){goto generate;}
-        if(!blacken_square(i/board_size, i%board_size, true)){circle_square(i);} //place black tile
+        if(!blacken_square(i%board_size, i/board_size, true)){circle_square(i);} //place black tile
 		set_bkg_tile_xy(0,4,1);
 		
         if (impossible) { //restart if impossible
@@ -70,7 +70,7 @@ generate:
     for(i = 0; i < num_tiles; i++){ //check each square to make sure all are either black or circled
 		if(solution[i] == EMPTY){ 
 			if(!surrounded_edges()){goto generate;}
-			if(!blacken_square(i/board_size, i%board_size, true)){circle_square(i);} //place black square if possible
+			if(!blacken_square(i%board_size, i/board_size, true)){circle_square(i);} //place black square if possible
 			if (impossible) {
 				//printf("generator made impossible, restarting...\n");
 				goto generate;
@@ -83,8 +83,8 @@ generate:
     for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
 		if(solution[i] == BLACK){continue;} //exclude black tiles
 		j = board[i];
-		x = i/board_size;
-		y = i%board_size;
+		x = i%board_size;
+		y = i/board_size;
 		rownums[y*board_size + j-1]++;
 		colnums[x*board_size + j-1]++;
 	}
@@ -93,17 +93,21 @@ generate:
 		if(solution[i] != BLACK){continue;}
 		board[i] = best_duplicate(i);
 	}
-	set_bkg_tile_xy(0,3,0x15); //clear indicators
-	set_bkg_tile_xy(0,4,0x15);
-	set_bkg_tile_xy(0,5,0x15);
-	set_bkg_tile_xy(0,6,0x15);
-	set_bkg_tile_xy(0,7,0x15);
-	set_bkg_tile_xy(0,8,0x15);
-	set_bkg_tile_xy(0,9,0x15);
+	set_bkg_tile_xy(0,3,WHITE); //clear indicators
+	set_bkg_tile_xy(0,4,WHITE);
+	set_bkg_tile_xy(0,5,WHITE);
+	set_bkg_tile_xy(0,6,WHITE);
+	set_bkg_tile_xy(0,7,WHITE);
+	set_bkg_tile_xy(0,8,WHITE);
+	set_bkg_tile_xy(0,9,WHITE);
+	
+	free(rownums);
+	free(colnums);
+	free(randlist);
 }
 
 uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
-	uint8_t i,j, temp, randval, x=coord/board_size, y=coord%board_size;
+	uint8_t i,j, temp, randval, x=coord%board_size, y=coord/board_size;
 	for(i = 0; i < board_size; i++){randlist[i] = i+1;} //generate list of numbers from 1 to board_size
 	for(i = board_size-1; i > 0; i--){ //shuffle array
 		randval = (uint8_t)arand() % board_size;
@@ -234,7 +238,7 @@ bool has_single_white_region(){ //returns true if board is not split, otherwise 
 }
 
 static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns false if an initial placement step fails
-	uint8_t coord = x*board_size + y;							//i'm pretty sure these x's and y's are swapped but it still works
+	uint8_t coord = y*board_size + x;
     if(solution[coord] == CIRCLE){ goto fail; }
     else if(solution[coord] == EMPTY) {
         //printf("blackening %d, %d\n",x,y);
@@ -252,8 +256,15 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns f
             if (solution[coord+1] == BLACK) { goto fail; }
         }
 		//set_bkg_tile_xy(x,y,0);
+		
         solution[coord] = BLACK; //mark tile as black
-		if(CHECK(solution[coord+board_size+1]) + CHECK(solution[coord+board_size-1]) + CHECK(solution[coord-board_size+1]) + CHECK(solution[coord-board_size-1]) >= 2){
+		
+		uint8_t diag = 0; //if placing black tile would cause split, circle instead
+		if(INGRID(board_size,x+1,y+1) && CHECK(solution[coord+board_size+1])){diag++;}
+		if(INGRID(board_size,x-1,y+1) && CHECK(solution[coord-board_size+1])){diag++;}
+		if(INGRID(board_size,x+1,y-1) && CHECK(solution[coord+board_size-1])){diag++;}
+		if(INGRID(board_size,x-1,y-1) && CHECK(solution[coord-board_size-1])){diag++;}
+		if(diag >= 2){
 			if(!has_single_white_region()){ //only check this if at least 2 diagonals are black
 				solution[coord] = EMPTY;
 				circle_square(coord);
@@ -269,7 +280,7 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns f
 
         return true;
         fail:
-        if(!initial){ //only return true if not called as an initial placement
+        if(!initial){ //only return false if called as an initial placement
             impossible = true;
             //printf("impossible to blacken %d, %d, failing\n",x,y);
             return true;
@@ -281,12 +292,12 @@ static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns f
 }
 
 static inline void circle_square_xy(uint8_t x, uint8_t y){ //wrapper function for a few places that need xy addressing
-	circle_square(x*board_size + y);
+	circle_square(y*board_size + x);
 }
 
 static void circle_square(uint8_t i){
-	uint8_t x = i/board_size;
-	uint8_t y = i%board_size;
+	uint8_t x = i%board_size;
+	uint8_t y = i/board_size;
 	if(!(INGRID(board_size,x,y))){return;} //bounds check
     if(solution[i] == BLACK) {
         impossible = true;
@@ -297,12 +308,12 @@ static void circle_square(uint8_t i){
         //printf("circling %d, %d\n",x,y);
         solution[i] = CIRCLE;
         for (uint8_t xt = 0; xt < board_size; xt++) { //black out redundant squares in same row
-            if(xt != x && board[xt*board_size + y]==board[i]){
+            if(xt != x && board[y*board_size + xt]==board[i]){
                 blacken_square(xt,y, false);
             }
         }
         for (uint8_t yt = 0; yt < board_size; yt++) { //and same column
-            if(yt != y && board[x*board_size + yt]==board[i]){
+            if(yt != y && board[yt*board_size + x]==board[i]){
                 blacken_square(x,yt, false);
             }
         }
@@ -310,7 +321,7 @@ static void circle_square(uint8_t i){
 }
 
 static uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
-    if(solution[xi*board_size + yi] == BLACK){return 0;}
+    if(solution[yi*board_size + xi] == BLACK){return 0;}
 	set_bkg_tile_xy(0,8,1);
     //printf("started fill\n");
     bool *reachable = (bool *)calloc(num_tiles,sizeof(bool));
@@ -324,8 +335,8 @@ static uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
         nx = dequeue(&Qx);
         ny = dequeue(&Qy);
 		if(!INGRID(board_size,nx,ny)){continue;}
-        if(reachable[nx*board_size + ny] == false && solution[nx*board_size + ny] != BLACK){
-            reachable[nx*board_size + ny] = true;
+        if(reachable[ny*board_size + nx] == false && solution[ny*board_size + nx] != BLACK){
+            reachable[ny*board_size + nx] = true;
 			enqueue(&Qx, nx-1);
 			enqueue(&Qy, ny);
 
