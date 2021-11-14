@@ -8,119 +8,202 @@
 
 #include "generator.h"
 #include "latinsquare.h"
-#include "queues.h"
 
-uint8_t *randlist, *colnums, *rownums;
-enum {EMPTY, BLACK, CIRCLE};
-bool impossible = false;
+#define delta_V -1
 
-#define INGRID(s,x,y) ((x) < (s) && (y) < (s))
-#define CHECK(x) (((x)==1) ? 1 : 0)
-static bool blacken_square(uint8_t x, uint8_t y, bool initial);
-static inline void circle_square_xy(uint8_t x, uint8_t y);
-static void circle_square(uint8_t i);
-bool has_single_white_region();
-static bool remove_splits(uint8_t coord);
-static bool surrounded_edges();
-static uint8_t fill(uint8_t xi, uint8_t yi);
-static uint8_t best_duplicate(uint8_t coord);
+typedef struct Face{
+    uint8_t val;
+    struct Face *parent;
+} face_t;
 
-void generate_board()
-{
-    uint8_t i, j, x, y;
-	rownums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	colnums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	randlist = (uint8_t *)calloc(board_size,sizeof(uint8_t));
-generate:
-	set_bkg_tile_xy(0,3,0); //visual indicators for which stage the generator is in
-	set_bkg_tile_xy(0,4,0);
-	set_bkg_tile_xy(0,5,0);
-	set_bkg_tile_xy(0,6,0);
-	set_bkg_tile_xy(0,7,0);
-	set_bkg_tile_xy(0,8,0);
-	set_bkg_tile_xy(0,9,0);
-    impossible = false; //flag if board becomes impossible
-    
-    //initialize board and solution
-    latin_generate(); //generate base latin square
-    for(i = 0; i < num_tiles; i++){
-		solution[i] = EMPTY; //initialize solution
-    }
-	set_bkg_tile_xy(0,3,1);
+enum {EMPTY,BLACK,CIRCLE};
+#define CHECK(x) ((x)==1 ? 1 : 0)
 
-    for(j = 0; j < num_tiles; j++) { //place initial black tiles
-        i = arand() % num_tiles;
-        if ((solution[i] == CIRCLE) || (solution[i] == BLACK)) {
-            if(solution[i+2] == EMPTY){i += 2;}
-            else{continue;} //skip already processed tile
-        }
-
-        //update edges, the filling function has issues with them and it's really fast
-		//if(!surrounded_edges()){goto generate;}
-        if(!blacken_square(i%board_size, i/board_size, true)){circle_square(i);} //place black tile
-		set_bkg_tile_xy(0,4,1);
-		
-        if (impossible) { //restart if impossible
-            //printf("generator made impossible, restarting...\n");
-            goto generate;
-        }
-
-    }
-	set_bkg_tile_xy(0,6,1);
-    for(i = 0; i < num_tiles; i++){ //check each square to make sure all are either black or circled
-		if(solution[i] == EMPTY){ 
-			if(!surrounded_edges()){goto generate;}
-			if(!blacken_square(i%board_size, i/board_size, true)){circle_square(i);} //place black square if possible
-			if (impossible) {
-				//printf("generator made impossible, restarting...\n");
-				goto generate;
-			}
-		}
-    }
-	if(!has_single_white_region){goto generate;} //restart if board is split
-	set_bkg_tile_xy(0,9,1);
-    
-    for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
-		if(solution[i] == BLACK){continue;} //exclude black tiles
-		j = board[i];
-		x = i%board_size;
-		y = i/board_size;
-		rownums[y*board_size + j-1]++;
-		colnums[x*board_size + j-1]++;
-	}
-	
-	for(i = 0; i < num_tiles; i++){ //assign duplicate numbers to black tiles
-		if(solution[i] != BLACK){continue;}
-		board[i] = best_duplicate(i);
-	}
-	set_bkg_tile_xy(0,3,WHITE); //clear indicators
-	set_bkg_tile_xy(0,4,WHITE);
-	set_bkg_tile_xy(0,5,WHITE);
-	set_bkg_tile_xy(0,6,WHITE);
-	set_bkg_tile_xy(0,7,WHITE);
-	set_bkg_tile_xy(0,8,WHITE);
-	set_bkg_tile_xy(0,9,WHITE);
-	
-	free(rownums);
-	free(colnums);
-	free(randlist);
+inline void set_face(face_t *f1, face_t *f2){
+	f1->val = f2->val;
+	f1->parent = f2->parent;
 }
+
+const face_t infinite_face = {0, &infinite_face};
+uint8_t nb_ret[8];
+face_t *incident_ret[4];
+face_t *faces;
+uint8_t *randlist_order, *randlist_dupes, *colnums, *rownums;
+
+void init_faces();
+bool blacken_square(uint8_t y, uint8_t x);
+void neighbors(uint8_t x, uint8_t y);
+uint8_t get_incident_faces(uint8_t x, uint8_t y);
+face_t *get_face(uint8_t x, uint8_t y);
+uint8_t pop();
+
+uint8_t flag = 1;
+face_t *rep(face_t *self){
+	uint8_t count = 0;
+	face_t gp;
+	face_t *grandparent = &gp;
+    while(self != self->parent){
+		//set_bkg_tile_xy(0,1,flag^=1);
+		//set_bkg_tile_xy(0,2,self->val);
+        grandparent = self->parent->parent;
+        self->parent = grandparent;
+        self = grandparent;
+		count++;
+    }
+	return self;
+}
+
+inline void merge(face_t *self, face_t *other){
+	//set_bkg_tile_xy(4,1,rep(other)->parent->val);
+	//set_bkg_tile_xy(5,1,rep(self)->val);
+    rep(other)->parent = rep(self);
+}
+
+void init_faces(){
+	faces = malloc((board_size-1)*(board_size-1)*sizeof(face_t));
+
+    uint8_t i,j;
+    for(i = 0; i < board_size; i++){
+        for(j = 0; j < board_size; j++){
+            solution[j*board_size+i] = EMPTY;
+        }
+    }
+    for(i = 0; i < board_size-1; i++){
+        for(j = 0; j < board_size-1; j++){
+            faces[j*(board_size-1)+i].val = j*(board_size-1)+i+1;
+            faces[j*(board_size-1)+i].parent = &faces[j*(board_size-1)+i];
+        }
+    }
+}
+
+inline bool blacken_square_coord(uint8_t coord){
+    return blacken_square(coord/board_size, coord%board_size);
+}
+
+bool blacken_square(uint8_t x, uint8_t y){
+    if(solution[y*board_size+x]){return false;}
+    uint8_t i;
+    neighbors(x,y);
+    //set_bkg_tile_xy(0,0,0);
+    for(i = 0; i < 8; i+=2){
+        if(nb_ret[i] != 255 && CHECK(solution[nb_ret[i+1]*board_size + nb_ret[i]])){return false;}
+    }
+	//set_bkg_tile_xy(0,0,1);
+    int8_t delta_F = get_incident_faces(x,y);
+	//set_bkg_tile_xy(0,0,2);
+    int8_t delta_E = 0;
+    for(i = 0; i < 8; i+=2){
+        if(nb_ret[i] != 255){delta_E++;}
+    }
+    //set_bkg_tile_xy(0,0,3);
+    //set_bkg_tile_xy(0,7,delta_E);
+    delta_E *= -1;
+
+	//set_bkg_tile_xy(0,8,delta_F-1);
+    delta_F = 1 - delta_F;
+    //set_bkg_tile_xy(0,0,4);	
+	
+    if(delta_V - delta_E + delta_F != 0){return false;}
+    //set_bkg_tile_xy(0,0,5);
+	
+    solution[y*board_size+x] = BLACK;
+
+    uint8_t index = pop();
+    for(i = 0; i < 4; i++){
+        merge(incident_ret[index], incident_ret[i]);
+    }
+	//set_bkg_tile_xy(0,0,6);
+    return true;
+}
+
+void neighbors(uint8_t x, uint8_t y){
+    if(x > 0){
+        nb_ret[0] = x-1;
+        nb_ret[1] = y;
+    }else{
+        nb_ret[0] = 255;
+        nb_ret[1] = 255;
+    }
+    if(y > 0){
+        nb_ret[2] = x;
+        nb_ret[3] = y-1;
+    }else{
+        nb_ret[2] = 255;
+        nb_ret[3] = 255;
+    }
+    if(x < board_size-1){
+        nb_ret[4] = x+1;
+        nb_ret[5] = y;
+    }else{
+        nb_ret[4] = 255;
+        nb_ret[5] = 255;
+    }
+    if(y < board_size-1){
+        nb_ret[6] = x;
+        nb_ret[7] = y+1;
+    }else{
+        nb_ret[6] = 255;
+        nb_ret[7] = 255;
+    }
+}
+
+uint8_t pop(){
+    uint8_t min = 255;
+	uint8_t retval = 0;
+    for(int8_t i = 0; i < 4; i++){
+        if(incident_ret[i]->val < min){
+			//set_bkg_tile_xy(4,2,incident_ret[i]->val);
+			//set_bkg_tile_xy(5,2,min);
+            min = incident_ret[i]->val;
+			retval = i;
+        }
+    }
+	return retval;
+}
+
+
+uint8_t get_incident_faces(uint8_t x, uint8_t y){
+    incident_ret[0]=get_face(x-1,y-1);
+	uint8_t count = 1;
+	//set_bkg_tile_xy(3,0,incident_ret[0]->val);
+	
+	incident_ret[1]=get_face(x-1,y);
+	if(incident_ret[1] != incident_ret[0]){count++;}
+	//set_bkg_tile_xy(4,0,incident_ret[1]->val);
+	
+	incident_ret[2]=get_face(x,y-1);
+	if(incident_ret[2] != incident_ret[1] && incident_ret[2] != incident_ret[0]){count++;}
+	//set_bkg_tile_xy(5,0,incident_ret[2]->val);
+	
+    incident_ret[3]=get_face(x,y);
+	if(incident_ret[3] != incident_ret[2] && incident_ret[3] != incident_ret[1] && incident_ret[3] != incident_ret[0]){count++;}
+	//set_bkg_tile_xy(6,0,incident_ret[3]->val);
+	
+	//set_bkg_tile_xy(0,3,count);
+	return count;
+}
+
+face_t * get_face(uint8_t x, uint8_t y){
+    if(x<board_size-1 && y<board_size-1){ return rep(&faces[y*(board_size-1)+x]);}
+    else{return &infinite_face;}
+}
+
 
 uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
 	uint8_t i,j, temp, randval, x=coord%board_size, y=coord/board_size;
-	for(i = 0; i < board_size; i++){randlist[i] = i+1;} //generate list of numbers from 1 to board_size
-	for(i = board_size-1; i > 0; i--){ //shuffle array
+	for(i = 0; i < board_size; i++){randlist_dupes[i] = i+1;} //generate list of numbers from 1 to board_size
+	for(i = board_size; i > 0; i--){ //shuffle array
 		randval = (uint8_t)arand() % board_size;
-		temp = randlist[i];
-		randlist[i] = randlist[randval];
-		randlist[randval] = temp;
+		temp = randlist_dupes[i-1];
+		randlist_dupes[i-1] = randlist_dupes[randval];
+		randlist_dupes[randval] = temp;
 	}
 	for(i = 0; i < board_size; i++){ //prioritize numbers that appear once in the row and column, to minimize latin square characteristics
-		j = randlist[i];
+		j = randlist_dupes[i];
 		if(rownums[y*board_size + j-1] == 1 && colnums[x*board_size + j-1] == 1){goto found;}
 	}
 	for(i = 0; i < board_size; i++){ //if none are found, use the first duplicate 
-		j = randlist[i];
+		j = randlist_dupes[i];
 		if(rownums[y*board_size + j-1] || colnums[x*board_size + j-1]){goto found;}
 	}
 	return 0; //should not happen
@@ -131,235 +214,44 @@ found:
 	return j; 
 }
 
-static bool surrounded_edges(){ //check for surrounded tiles on edges
-	set_bkg_tile_xy(0,6,1);
-	uint8_t top,bottom,left,right,retval = 1;
-	uint8_t bottom_offset = (board_size-1)*board_size;
-	for(uint8_t i = 0; i < board_size; i++){
-	    top = 0x07,bottom = 0x07,left = 0x07,right = 0x07; //use bit flags to mark which sides are open
-		if(i){
-			top -= CHECK(solution[i-1])*4;
-			bottom -= CHECK(solution[bottom_offset + i-1]) *4;
-			left -= CHECK(solution[(i-1)*board_size]) *4;
-			right -= CHECK(solution[(i-1)*board_size + (board_size-1)]) *4;
-		}else{
-			top &=~ 0x04;
-			bottom &=~ 0x04;
-			left &=~ 0x04;
-			right &=~ 0x04;
-		}
-		if(i!=board_size-1){
-			top -= CHECK(solution[i+1])*2;
-			bottom -= CHECK(solution[bottom_offset + i+1])*2;
-			left -= CHECK(solution[(i+1)*board_size])*2;
-			right -= CHECK(solution[(i+1)*board_size + (board_size-1)])*2;
-		}else{
-			top &=~ 0x02;
-			bottom &=~ 0x02;
-			left &=~ 0x02;
-			right &=~ 0x02;
-		}
-		top &=~ CHECK(solution[i+board_size]);
-		bottom &=~ CHECK(solution[bottom_offset-board_size + i]);
-		left &=~ CHECK(solution[i*board_size + 1]);
-		right &=~ CHECK(solution[i*board_size + board_size - 2]);
-	    
-	    if(CHECK(solution[i])){top = 0x07;} //if a tile is black, ignore it
-	    if(CHECK(solution[bottom_offset + i])){bottom = 0x07;}
-	    if(CHECK(solution[i*board_size])){left = 0x07;}
-	    if(CHECK(solution[i*board_size + (board_size-1)])){right = 0x07;}
-		
-		switch(top){ //if a tile only has one side open, circle the tile on that side
-	    case 1:
-	        circle_square(i+board_size);
-	        break;
-	    case 2:
-	        circle_square(i+1);
-	        break;
-	    case 4:
-	        circle_square(i-1);
-	    }
-	    switch(bottom){
-	    case 1:
-	        circle_square(bottom_offset-board_size + i);
-	        break;
-	    case 2:
-	        circle_square(bottom_offset + i+1);
-	        break;
-	    case 4:     
-	        circle_square(bottom_offset + i-1);
-	    }
-        switch(left){
-        case 1:
-            circle_square(i*board_size + 1);
-            break;
-        case 2:
-	        circle_square((i+1)*board_size);
-	        break;
-	    case 4:
-	        circle_square((i-1)*board_size);
-        }
-	    switch(right){
-	    case 1: 
-	        circle_square(i*board_size + board_size - 2);
-	        break;
-	    case 2:
-	        circle_square((i+1)*board_size + (board_size-1));
-	        break;
-	    case 4: 
-	        circle_square((i-1)*board_size + (board_size-1));
-	    }
-	    
-	    retval &= top && bottom && left && right; //return 0 if any tile is fully surrounded, otherwise 1
-	    
-		//printf("%d %d %d %d\n",top,bottom,left,right);
+
+void generate_board(){
+	init_faces();
+    uint8_t i,j,x,y, randval, temp;
+	randlist_order = (uint8_t *)malloc(num_tiles*sizeof(uint8_t));
+	randlist_dupes = (uint8_t *)calloc(board_size,sizeof(uint8_t));
+	colnums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
+	rownums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
+	
+	for(i = num_tiles; i > 0; i--){ 
+		randlist_order[i] = i;
 	}
-	set_bkg_tile_xy(0,6,0);
-    return retval;
-}
-
-bool has_single_white_region(){ //returns true if board is not split, otherwise false
-	if(!surrounded_edges()){return false;}
-	uint8_t black_count=0; //number of black tiles
-	for(uint8_t i = 0; i < num_tiles; i++){ //this could be tracked by other functions but it was buggy and this worked first try
-		if(solution[i] == BLACK){black_count++;}
+	for(i = num_tiles; i > 0; i--){ //shuffle array
+		randval = (uint8_t)arand() % board_size;
+		temp = randlist_order[i-1];
+		randlist_order[i-1] = randlist_order[randval];
+		randlist_order[randval] = temp;
 	}
-	if(black_count <= 1){return true;} //can't be split with less than 2
-    uint8_t whitespace_count = (board_size * board_size) - black_count;
-
-    uint8_t fillres;
-    if(solution[0] != BLACK){
-        fillres = fill(0,0);
-    }else{
-        fillres = fill(0,1);
-    }
-	//set_bkg_tile_xy(0,9,fillres >= whitespace_count);
-    return fillres >= whitespace_count;
-}
-
-static bool blacken_square(uint8_t x, uint8_t y, bool initial){ //only returns false if an initial placement step fails
-	uint8_t coord = y*board_size + x;
-    if(solution[coord] == CIRCLE){ goto fail; }
-    else if(solution[coord] == EMPTY) {
-        //printf("blackening %d, %d\n",x,y);
-
-        if (x == 0) { //fail if any sides are already black
-            if (solution[coord-board_size] == BLACK) { goto fail;}
-        }
-        if (y == 0) {
-            if (solution[coord-1] == BLACK) { goto fail; }
-        }
-        if (x == board_size) {
-            if (solution[coord+board_size] == BLACK) { goto fail; }
-        }
-        if (y == board_size) {
-            if (solution[coord+1] == BLACK) { goto fail; }
-        }
-		//set_bkg_tile_xy(x,y,0);
-		
-        solution[coord] = BLACK; //mark tile as black
-		
-		uint8_t diag = 0; //if placing black tile would cause split, circle instead
-		if(INGRID(board_size,x+1,y+1) && CHECK(solution[coord+board_size+1])){diag++;}
-		if(INGRID(board_size,x-1,y+1) && CHECK(solution[coord-board_size+1])){diag++;}
-		if(INGRID(board_size,x+1,y-1) && CHECK(solution[coord+board_size-1])){diag++;}
-		if(INGRID(board_size,x-1,y-1) && CHECK(solution[coord-board_size-1])){diag++;}
-		if(diag >= 2){
-			if(!has_single_white_region()){ //only check this if at least 2 diagonals are black
-				solution[coord] = EMPTY;
-				circle_square(coord);
-				goto fail;
-			}
-		}
-
-        //circle all neighboring squares
-		circle_square_xy(x - 1, y);
-		circle_square_xy(x, y - 1);
-		circle_square_xy(x + 1, y);
-		circle_square_xy(x, y + 1);
-
-        return true;
-        fail:
-        if(!initial){ //only return false if called as an initial placement
-            impossible = true;
-            //printf("impossible to blacken %d, %d, failing\n",x,y);
-            return true;
-        }
-        //printf("impossible to blacken %d, %d, skipping\n",x,y);
-        return false;
-    }
-	return false; //never happens, just here to make the compiler happy
-}
-
-static inline void circle_square_xy(uint8_t x, uint8_t y){ //wrapper function for a few places that need xy addressing
-	circle_square(y*board_size + x);
-}
-
-static void circle_square(uint8_t i){
-	uint8_t x = i%board_size;
-	uint8_t y = i/board_size;
-	if(!(INGRID(board_size,x,y))){return;} //bounds check
-    if(solution[i] == BLACK) {
-        impossible = true;
-        //printf("impossible to circle %d, %d\n",x,y);
-        return;
-    }
-    else if(solution[i] == EMPTY) {
-        //printf("circling %d, %d\n",x,y);
-        solution[i] = CIRCLE;
-        for (uint8_t xt = 0; xt < board_size; xt++) { //black out redundant squares in same row
-            if(xt != x && board[y*board_size + xt]==board[i]){
-                blacken_square(xt,y, false);
-            }
-        }
-        for (uint8_t yt = 0; yt < board_size; yt++) { //and same column
-            if(yt != y && board[yt*board_size + x]==board[i]){
-                blacken_square(x,yt, false);
-            }
-        }
-    }
-}
-
-static uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
-    if(solution[yi*board_size + xi] == BLACK){return 0;}
-	set_bkg_tile_xy(0,8,1);
-    //printf("started fill\n");
-    bool *reachable = (bool *)calloc(num_tiles,sizeof(bool));
-    node_t *Qx = NULL;			   //this version of SDCC doesn't support passing/returning structs
-    node_t *Qy = NULL;			   //and this seemed easier than a queue of arrays
-    enqueue(&Qx, xi);
-    enqueue(&Qy, yi);
-    uint8_t nx, ny;
-
-    while(Qx!=NULL && Qy!=NULL){
-        nx = dequeue(&Qx);
-        ny = dequeue(&Qy);
-		if(!INGRID(board_size,nx,ny)){continue;}
-        if(reachable[ny*board_size + nx] == false && solution[ny*board_size + nx] != BLACK){
-            reachable[ny*board_size + nx] = true;
-			enqueue(&Qx, nx-1);
-			enqueue(&Qy, ny);
-
-			enqueue(&Qx, nx);
-			enqueue(&Qy, ny-1);
-
-			enqueue(&Qx, nx+1);
-			enqueue(&Qy, ny);
-
-			enqueue(&Qx, nx);
-			enqueue(&Qy, ny+1);
-        }
-    }
-    free(Qx);
-    free(Qy);
-	uint8_t count = 0;
-	for(uint8_t i = 0; i < num_tiles; i++){ //tried putting this counter in the fill alg itself, but it doublecounts a lot
-		if(reachable[i]){			//this isn't that much slower anyway
-			count++;
-		}
+	for(i = num_tiles; i > 0; i--){ 
+		blacken_square_coord(randlist_order[i]);
 	}
-    free(reachable);
-    //printf("%d\n",count);
-	set_bkg_tile_xy(0,8,0);
-    return count;
+	
+	latin_generate();
+	
+	for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
+		if(solution[i]){continue;} //exclude black tiles
+		j = board[i];
+		x = i%board_size;
+		y = i/board_size;
+		rownums[y*board_size + j-1]++;
+		colnums[x*board_size + j-1]++;
+	}
+	for(i = 0; i < num_tiles; i++){
+		if(solution[i]){board[i] = best_duplicate(i);}
+	}
+	free(colnums);
+	free(rownums);
+	free(randlist_dupes);
+	free(randlist_order);
+	free(faces);
 }

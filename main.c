@@ -49,7 +49,7 @@ restart:
 	
 	board = (uint8_t *)calloc( board_size, board_size*sizeof(uint8_t)); //dynamically allocate all arrays based on board size
 	marks = (uint8_t *)malloc( num_tiles*sizeof(uint8_t)); 
-	solution = (uint8_t *)malloc( num_tiles*sizeof(uint8_t));
+	solution = (uint8_t *)calloc( num_tiles,sizeof(uint8_t));
 	
 	set_bkg_data(0,42,board_tiles);
 	set_bkg_tiles(0,0,20,18,board_layout);
@@ -58,10 +58,9 @@ restart:
 	set_bkg_tile_xy(1,0,31);
 	set_bkg_tile_xy(2,0,32);
 	initarand(clock());
-	do{generate_board();}while(!has_single_white_region()); //i have no idea why these boards keep getting through this far
-	set_bkg_tile_xy(0,6,WHITE); //clean up stray tiles caused by ^^ 
-	set_bkg_tile_xy(0,8,WHITE);
-	set_bkg_tile_xy(0,9,WHITE);
+
+	generate_board();
+	
 	set_bkg_tile_xy(0,0,WHITE);
 	set_bkg_tile_xy(1,0,WHITE);
 	set_bkg_tile_xy(2,0,WHITE);

@@ -11,7 +11,7 @@ extern uint8_t num_tiles;
 extern const uint8_t WHITE;
 
 extern void generate_board();
-extern bool has_single_white_region();
+//extern bool has_single_white_region();
 
 
 #endif //TESTPROJ_GENERATOR_H
