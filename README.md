@@ -1,6 +1,7 @@
 # HitoriGB
 By Max Gerckens, 2021
-Port of Hitori (aka Leave Me Alone or Singles) to the Game Boy using gbdk-2020
+
+A port of Hitori (aka Leave Me Alone or Singles) to the Game Boy using gbdk-2020
 
 Board sizes from 5x5 to 15x15
 
