@@ -14,6 +14,7 @@
 #include "game_board_layout.h"
 #include "cursor_tile.h"
 #include "generator.h"
+//#include "queues.h"
 
 //offsets added to tile positions to keep board centered on screen
 #define OFFSET_X (10-(board_size/2))
@@ -32,6 +33,8 @@ bool restarting = false;
 
 bool process_input();
 void title_input();
+//bool check_solution();
+//uint8_t fill(uint8_t xi, uint8_t yi);
 
 void main(void)
 {
@@ -80,7 +83,7 @@ restart:
 			free(board);
 			free(marks);
 			free(solution);
-			board_size = 5;
+			//board_size = 5;
 			HIDE_SPRITES; //avoid tile flickering during restart
 			HIDE_BKG;
 			goto restart;
@@ -94,11 +97,19 @@ restart:
 void title_input(){
 	uint8_t input = joypad();
 	static uint8_t pressed = 0;
-	if(BUTTON_DOWN(J_LEFT) && board_size > 5){ //update board size
-		board_size--;
+	if(BUTTON_DOWN(J_LEFT)){
+		if(board_size > 5){ //update board size
+			board_size--;
+		}else{
+			board_size = 15;
+		}
 	}
-	if(BUTTON_DOWN(J_RIGHT) && board_size < 15){
-		board_size++;
+	if(BUTTON_DOWN(J_RIGHT)){
+		if(board_size < 15){
+			board_size++;
+		}else{
+			board_size = 5;
+		}
 	}
 	set_bkg_tile_xy(9,9,TILE_NUM(board_size)); //update display
 	pressed = input;
@@ -113,8 +124,8 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	static uint8_t pressed = 0;
 	static bool solution_up = false;
 	//static bool check_up = false;
-	static uint16_t last_check = 0;
-	if(time(NULL) >= last_check+2){
+	static uint8_t last_check = 0;
+	if((uint8_t)time(NULL) >= last_check+2){
 		set_bkg_tile_xy(8,17,WHITE);
 		set_bkg_tile_xy(9,17,WHITE);
 		set_bkg_tile_xy(10,17,WHITE);
@@ -174,7 +185,6 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		restarting = true;
 		retval = false;
 	}else if(BUTTON_DOWN(J_SELECT)){ //checks solution, displays 1 if correct (will polish)
-	
 		bool is_correct = true;
 		for(uint8_t i = 0; i < num_tiles; i++){
 			if(CHECK(solution[i]) != CHECK(marks[i])){
@@ -194,7 +204,6 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 			set_bkg_tile_xy(11,17,WHITE);
 		}
 		last_check = time(NULL);
-	
 	}else if(BUTTON_DOWN(J_START)){ //display correct solution for debugging
 		if(!solution_up){			
 			for(uint8_t i = 0; i < board_size; i++){
@@ -228,3 +237,85 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	pressed = input;	
 	return retval;
 }
+/*
+bool check_solution(){
+	bool is_correct = true;
+	uint8_t i,j;
+	for(i = 0; i < num_tiles; i++){
+		if(CHECK(solution[i]) != CHECK(marks[i])){
+			is_correct = false;
+			break;
+		}
+	}
+	if(is_correct){return true;}
+	
+	uint8_t *row_count = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
+	uint8_t *col_count = (uint8_t *)calloc(board_size,sizeof(uint8_t));	
+	uint8_t black_count = 0;
+	for(i = 0; i < board_size; i++){
+		for(j = 0; j < board_size; j++){
+			if(marks[j*board_size+i] != BLACK){
+				row_count[j*board_size + board[j*board_size+i]]++;
+				col_count[board[j*board_size+i]]++;
+			}else{black_count++;}
+		}
+	}
+	set_bkg_tile_xy(0,0,0);
+	for(i = 0; i < board_size; i++){
+		if(col_count[i] > 1){return false;}
+		for(j = 0; j < board_size; j++){
+			if(row_count[j*board_size+i] > 1){return false;}
+		}
+	}
+	
+	if(marks[0] != BLACK){
+		if(fill(0,0) < (num_tiles - black_count)){return false;}
+	}else{
+		if(fill(0,1) < (num_tiles - black_count)){return false;}
+	}
+	return true;
+}
+
+#define INGRID(x,y) ((x) < board_size && (y) < board_size)
+uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
+	set_bkg_tile_xy(0,8,1);
+    //printf("started fill\n");
+    bool *reachable = (bool *)calloc(num_tiles,sizeof(bool));
+    node_t *Qx = NULL;			   //this version of SDCC doesn't support passing/returning structs
+    node_t *Qy = NULL;			   //and this seemed easier than a queue of arrays
+    enqueue(&Qx, xi);
+    enqueue(&Qy, yi);
+    uint8_t nx, ny;
+
+    while(Qx!=NULL && Qy!=NULL){
+        nx = dequeue(&Qx);
+        ny = dequeue(&Qy);
+		if(!INGRID(nx,ny)){continue;}
+        if(reachable[ny*board_size + nx] == false && marks[ny*board_size + nx] != BLACK){
+            reachable[ny*board_size + nx] = true;
+			enqueue(&Qx, nx-1);
+			enqueue(&Qy, ny);
+
+			enqueue(&Qx, nx);
+			enqueue(&Qy, ny-1);
+
+			enqueue(&Qx, nx+1);
+			enqueue(&Qy, ny);
+
+			enqueue(&Qx, nx);
+			enqueue(&Qy, ny+1);
+        }
+    }
+    free(Qx);
+    free(Qy);
+	uint8_t count = 0;
+	for(uint8_t i = 0; i < num_tiles; i++){ //tried putting this counter in the fill alg itself, but it doublecounts a lot
+		if(reachable[i]){			//this isn't that much slower anyway
+			count++;
+		}
+	}
+    free(reachable);
+    //printf("%d\n",count);
+	set_bkg_tile_xy(0,8,0);
+    return count;
+}*/
