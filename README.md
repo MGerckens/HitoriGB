@@ -7,7 +7,7 @@ Board sizes from 5x5 to 15x15
 
 A to blacken, B to circle, Select to check, Start to reveal solution, Start+Select to return to title
 
-Includes an up-to-date .gb ROM file, or can be compiled from source by installing gdbk and using lcc.exe 
+Release includes an up-to-date .gb ROM file, or can be compiled from source by installing gdbk and using lcc.exe 
 
 Original game by Nikoli, 1990
 
