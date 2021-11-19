@@ -7,7 +7,7 @@
  Info:
    Section       : 
    Bank          : 0
-   Map size      : 20 x 18
+   Map size      : 21 x 19
    Tile set      : D:\Documents\gbdk\GBTD\hitoriboard.gbr
    Plane count   : 1 plane (8 bits)
    Plane order   : Tiles are continues
@@ -20,8 +20,8 @@
 #ifndef __game_board_layout_h_INCLUDE
 #define __game_board_layout_h_INCLUDE
 
-#define board_layoutWidth 20
-#define board_layoutHeight 18
+#define board_layoutWidth 21
+#define board_layoutHeight 19
 #define board_layoutBank 0
 
 extern const unsigned char board_layout[];

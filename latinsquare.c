@@ -51,7 +51,7 @@ void latin_generate(){
         }
     }
 
-    for(i = 0; i < SWAPS; i++){ //shuffle the rows, to be less predictable
+    for(i = 0; i < SWAPS; i++){ //shuffle the rows and columns, to be less predictable
         index1 = (uint8_t)arand() % board_size;
         do{index2 = (uint8_t)arand() % board_size;}while(index1 == index2);
         swap_rows(index1, index2);

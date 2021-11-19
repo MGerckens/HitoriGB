@@ -14,7 +14,7 @@
 #include "game_board_layout.h"
 #include "cursor_tile.h"
 #include "generator.h"
-//#include "queues.h"
+#include "queues.h"
 
 //offsets added to tile positions to keep board centered on screen
 #define OFFSET_X (10-(board_size/2))
@@ -26,15 +26,13 @@ uint8_t num_tiles;
 enum {EMPTY, BLACK, CIRCLE};
 const uint8_t WHITE = 41;
 uint8_t cursor[2] = {0,0};
-uint8_t *board; 
-uint8_t *marks;
-uint8_t *solution;
+uint8_t *board, *marks, *solution;
 bool restarting = false;
 
 bool process_input();
 void title_input();
-//bool check_solution();
-//uint8_t fill(uint8_t xi, uint8_t yi);
+bool check_solution();
+uint8_t fill(uint8_t xi, uint8_t yi);
 
 void main(void)
 {
@@ -43,6 +41,7 @@ void main(void)
 restart:
 	set_bkg_data(0,59,title_tiles); //load title screen
 	set_bkg_tiles(0,0,20,18,title_layout);
+	move_bkg(0,0);
 	SHOW_BKG;
 	do{}while(joypad() & J_START); //wait until start is released
 	do{title_input();}while(!(joypad() & J_START));//wait on title screen
@@ -55,20 +54,23 @@ restart:
 	solution = (uint8_t *)calloc( num_tiles,sizeof(uint8_t));
 	
 	set_bkg_data(0,42,board_tiles);
-	set_bkg_tiles(0,0,20,18,board_layout);
+	set_bkg_tiles(0,0,21,19,board_layout);
 	SHOW_BKG;
-	set_bkg_tile_xy(0,0,33); //loading indicator
-	set_bkg_tile_xy(1,0,31);
-	set_bkg_tile_xy(2,0,32);
+	set_bkg_tile_xy(1,1,33); //loading indicator
+	set_bkg_tile_xy(2,1,31);
+	set_bkg_tile_xy(3,1,32);
+	if(board_size%2){move_bkg(4,4);}
 	initarand(clock());
 
 	generate_board();
 	
-	set_bkg_tile_xy(0,0,WHITE);
-	set_bkg_tile_xy(1,0,WHITE);
-	set_bkg_tile_xy(2,0,WHITE);
+	
+	set_bkg_tile_xy(1,1,WHITE);
+	set_bkg_tile_xy(2,1,WHITE);
+	set_bkg_tile_xy(3,1,WHITE);
 	set_sprite_data(0,2,cursor_tile); //load cursor sprite
 	set_sprite_tile(0,0);
+	
 	SHOW_SPRITES;
 	
 	for(int i = 0; i < num_tiles; i++){
@@ -184,15 +186,8 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	if(BUTTON_DOWN(J_SELECT) && BUTTON_DOWN(J_START)){ //start+select to return to title
 		restarting = true;
 		retval = false;
-	}else if(BUTTON_DOWN(J_SELECT)){ //checks solution, displays 1 if correct (will polish)
-		bool is_correct = true;
-		for(uint8_t i = 0; i < num_tiles; i++){
-			if(CHECK(solution[i]) != CHECK(marks[i])){
-				is_correct = false;
-				break;
-			}
-		}
-		if(is_correct){
+	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
+		if(check_solution()){
 			set_bkg_tile_xy(8,17,34);
 			set_bkg_tile_xy(9,17,35);
 			set_bkg_tile_xy(10,17,36);
@@ -229,6 +224,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	}
 	
 	move_sprite(0, (cursor[0]+OFFSET_X+1)*8,(cursor[1]+OFFSET_Y+2)*8); //move cursor sprite to correct location
+	if(board_size%2){scroll_sprite(0,-4,-4);}
 	if(marks[cursor[1]*board_size + cursor[0]] == BLACK){ //change cursor color when on a black square to keep it visible
 		set_sprite_tile(0,1);
 	}else{
@@ -237,38 +233,48 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	pressed = input;	
 	return retval;
 }
-/*
+
 bool check_solution(){
 	bool is_correct = true;
 	uint8_t i,j;
-	for(i = 0; i < num_tiles; i++){
+	for(i = 0; i < num_tiles; i++){ //check if player marks match solution
 		if(CHECK(solution[i]) != CHECK(marks[i])){
 			is_correct = false;
 			break;
 		}
 	}
-	if(is_correct){return true;}
+	if(is_correct){return true;} //if perfect match, no need to check further
 	
+	/* the rest is in case of a rare board with multiple solutions, ex:
+	 * 6,3,7,3,2,1,4,
+	 * 3,1,5,4,7,5,3,
+	 * 6,6,2,1,3,3,5,
+	 * 5,4,4,7,3,5,6,
+	 * 3,7,4,3,6,6,7,
+	 * 1,5,2,2,6,4,7,
+	 * 5,2,5,2,1,1,3
+	 * has two involving the 6s in top left */
+	 
 	uint8_t *row_count = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	uint8_t *col_count = (uint8_t *)calloc(board_size,sizeof(uint8_t));	
+	uint8_t *col_count = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));	
 	uint8_t black_count = 0;
-	for(i = 0; i < board_size; i++){
+	for(i = 0; i < board_size; i++){ //store count of each number in rows and columns
 		for(j = 0; j < board_size; j++){
 			if(marks[j*board_size+i] != BLACK){
 				row_count[j*board_size + board[j*board_size+i]]++;
-				col_count[board[j*board_size+i]]++;
-			}else{black_count++;}
+				col_count[i*board_size + board[j*board_size+i]]++;
+			}else{black_count++;} //also count black squares for next step
 		}
 	}
-	set_bkg_tile_xy(0,0,0);
-	for(i = 0; i < board_size; i++){
-		if(col_count[i] > 1){return false;}
+	
+	for(i = 0; i < board_size; i++){ //if any row or column has a duplicate, solution is false
 		for(j = 0; j < board_size; j++){
+			if(col_count[j*board_size+i] > 1){return false;}
 			if(row_count[j*board_size+i] > 1){return false;}
 		}
 	}
 	
-	if(marks[0] != BLACK){
+	if(marks[0] != BLACK){ //use flood fill to check for contiguity
 		if(fill(0,0) < (num_tiles - black_count)){return false;}
 	}else{
 		if(fill(0,1) < (num_tiles - black_count)){return false;}
@@ -278,11 +284,10 @@ bool check_solution(){
 
 #define INGRID(x,y) ((x) < board_size && (y) < board_size)
 uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
-	set_bkg_tile_xy(0,8,1);
-    //printf("started fill\n");
+	
     bool *reachable = (bool *)calloc(num_tiles,sizeof(bool));
-    node_t *Qx = NULL;			   //this version of SDCC doesn't support passing/returning structs
-    node_t *Qy = NULL;			   //and this seemed easier than a queue of arrays
+    node_t *Qx = NULL;
+    node_t *Qy = NULL;
     enqueue(&Qx, xi);
     enqueue(&Qy, yi);
     uint8_t nx, ny;
@@ -315,7 +320,5 @@ uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
 		}
 	}
     free(reachable);
-    //printf("%d\n",count);
-	set_bkg_tile_xy(0,8,0);
     return count;
-}*/
+}
