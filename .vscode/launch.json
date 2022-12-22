@@ -8,7 +8,7 @@
             "type": "emulicious-debugger",
             "request": "launch",
             "name": "Launch in Emulicious",
-            "program": "${workspaceFolder}/${command:AskForProgramName}",
+            "program": "D:/Documents/gbdk/Emulicious/Emulicious.exe",
             "port": 58870,
             "stopOnEntry": true
         }
