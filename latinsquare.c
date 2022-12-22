@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <time.h>
 #include <rand.h>
 
@@ -57,4 +56,5 @@ void latin_generate(){
         swap_rows(index1, index2);
 		swap_cols(index1, index2);
     }
+	free(randlist);
 }

@@ -26,16 +26,23 @@ uint8_t get_incident_faces(uint8_t x, uint8_t y);
 face_t *get_face(uint8_t x, uint8_t y);
 uint8_t pop();
 
-uint8_t flag = 1;
-face_t *rep(face_t *self){ //returns root of face
-	uint8_t count = 0;
-	face_t gp;
-	face_t *grandparent = &gp;
+const uint8_t WHITE_TILE = 41;
+
+bool temp = false;
+face_t *rep(face_t *self){ //returns root of face set
+	//face_t gp;
+	face_t *grandparent = NULL;
     while(self != self->parent){
-        grandparent = self->parent->parent;
+        /*if(self == grandparent && self != self->parent){
+			set_bkg_tile_xy(2,4,0);
+		}else{
+			set_bkg_tile_xy(2,4,1);
+		}*/
+		set_bkg_tile_xy(2,4,temp^=1);
+		grandparent = self->parent->parent;
         self->parent = grandparent;
         self = grandparent;
-		count++;
+		
     }
 	return self;
 }
@@ -46,8 +53,13 @@ inline void merge(face_t *self, face_t *other){ //combines two faces
 
 void init_faces(){ //set up solution and faces
 	faces = malloc((board_size-1)*(board_size-1)*sizeof(face_t)); //freed at the end of generation
-
     uint8_t i,j;
+	for(i = 0; i < 8; i++){
+		nb_ret[i] = 0;
+	}
+	for(i = 0; i < 4; i++){
+		incident_ret[i] = 0;
+	}
     for(i = 0; i < board_size; i++){
         for(j = 0; j < board_size; j++){
             solution[j*board_size+i] = 0;
@@ -68,6 +80,7 @@ inline bool blacken_square_coord(uint8_t coord){ //convert index coord to xy
 bool blacken_square(uint8_t x, uint8_t y){ //return value not used in generation, may be used later in solution checking idk
     if(solution[y*board_size+x]){return false;}
     uint8_t i;
+
     neighbors(x,y); //gets neighbor vertices and stores coords in nb_ret
 
     for(i = 0; i < 8; i+=2){
@@ -78,10 +91,10 @@ bool blacken_square(uint8_t x, uint8_t y){ //return value not used in generation
     for(i = 0; i < 8; i+=2){
         if(nb_ret[i] != 255){delta_E++;} //count neigboring edges
     }
-	
-	uint8_t delta_F = get_incident_faces(x,y); //count neigboring faces
 
-    if(delta_E - delta_F != 0){return false;} //check if graph is fully connected 
+	uint8_t delta_F = get_incident_faces(x,y); //count neigboring faces
+	
+    if(delta_E - delta_F){return false;} //check if graph is fully connected 
     solution[y*board_size+x] = 1;
 
     uint8_t index = pop();
@@ -94,32 +107,24 @@ bool blacken_square(uint8_t x, uint8_t y){ //return value not used in generation
 
 void neighbors(uint8_t x, uint8_t y){ //return coords of neighbors, or 255 if not on board
     if(x > 0){
-        nb_ret[0] = x-1;
-        nb_ret[1] = y;
+        nb_ret[0] = x-1; nb_ret[1] = y;
     }else{
-        nb_ret[0] = 255;
-        nb_ret[1] = 255;
+        nb_ret[0] = 255; nb_ret[1] = 255;
     }
     if(y > 0){
-        nb_ret[2] = x;
-        nb_ret[3] = y-1;
+        nb_ret[2] = x; nb_ret[3] = y-1;
     }else{
-        nb_ret[2] = 255;
-        nb_ret[3] = 255;
+        nb_ret[2] = 255; nb_ret[3] = 255;
     }
     if(x < board_size-1){
-        nb_ret[4] = x+1;
-        nb_ret[5] = y;
+        nb_ret[4] = x+1; nb_ret[5] = y;
     }else{
-        nb_ret[4] = 255;
-        nb_ret[5] = 255;
+        nb_ret[4] = 255; nb_ret[5] = 255;
     }
     if(y < board_size-1){
-        nb_ret[6] = x;
-        nb_ret[7] = y+1;
+        nb_ret[6] = x; nb_ret[7] = y+1;
     }else{
-        nb_ret[6] = 255;
-        nb_ret[7] = 255;
+        nb_ret[6] = 255; nb_ret[7] = 255;
     }
 }
 
@@ -137,23 +142,32 @@ uint8_t pop(){ //get index of lowest val neigboring face, only really matters if
 
 
 uint8_t get_incident_faces(uint8_t x, uint8_t y){ //return all neigboring faces, and count how many are unique
+	//set_bkg_tile_xy(3,2,0);
     incident_ret[0]=get_face(x-1,y-1);
 	uint8_t count = 1;
 	
+	//set_bkg_tile_xy(3,3,0);
 	incident_ret[1]=get_face(x-1,y);
 	if(incident_ret[1] != incident_ret[0]){count++;}
 	
-	incident_ret[2]=get_face(x,y-1);
+	//set_bkg_tile_xy(3,4,x);	
+	incident_ret[2]=get_face(x,y-1); //sometimes hangs when x is 0
+	
 	if(incident_ret[2] != incident_ret[1] && incident_ret[2] != incident_ret[0]){count++;}
 	
+	//set_bkg_tile_xy(3,6,0);
     incident_ret[3]=get_face(x,y);
 	if(incident_ret[3] != incident_ret[2] && incident_ret[3] != incident_ret[1] && incident_ret[3] != incident_ret[0]){count++;}
-
+	
+	
 	return count;
 }
 
 face_t * get_face(uint8_t x, uint8_t y){ //return face at coordinate with bounds checking
-    if(x<board_size-1 && y<board_size-1){ return rep(&faces[y*(board_size-1)+x]);}
+    if(x<board_size-1 && y<board_size-1){ 
+		//set_bkg_tile_xy(3,5,faces[y*(board_size-1)+x].val);
+		return rep(&faces[y*(board_size-1)+x]);
+	}
     else{return &infinite_face;}
 }
 
@@ -186,13 +200,18 @@ found:
 
 void generate_board(){
 	init_faces();
+	//set_bkg_tile_xy(4,1,0);
     uint8_t i,j,x,y, randval, temp;
-	randlist_order = (uint8_t *)malloc(num_tiles*sizeof(uint8_t));
-	randlist_dupes = (uint8_t *)calloc(board_size,sizeof(uint8_t));
-	colnums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	rownums = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	
-	for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to board_size
+	randlist_order = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	set_bkg_tile_xy(2,4,20);
+	randlist_dupes = (uint8_t *)malloc(board_size * sizeof(uint8_t));
+	set_bkg_tile_xy(2,5,21);
+	colnums = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	set_bkg_tile_xy(2,6,22);
+	rownums = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	set_bkg_tile_xy(2,7,23);
+	//set_bkg_tile_xy(4,2,0);
+	for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to num_tiles
 		randlist_order[i] = i;
 	}
 	for(i = num_tiles; i > 0; i--){ //shuffle array
@@ -201,12 +220,13 @@ void generate_board(){
 		randlist_order[i-1] = randlist_order[randval];
 		randlist_order[randval] = temp;
 	}
+	set_bkg_tile_xy(4,3,0);
 	for(i = num_tiles; i > 0; i--){ //attempt to blacken all squares in random order
 		blacken_square_coord(randlist_order[i]);
 	}
-	
+	//set_bkg_tile_xy(4,4,0);
 	latin_generate();
-	
+	//set_bkg_tile_xy(4,5,0);
 	for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
 		if(solution[i]){continue;} //exclude black tiles
 		j = board[i];
@@ -219,8 +239,12 @@ void generate_board(){
 		if(solution[i]){board[i] = best_duplicate(i);}
 	}
 	free(colnums);
+	set_bkg_tile_xy(2,6,WHITE_TILE);
 	free(rownums);
+	set_bkg_tile_xy(2,7,WHITE_TILE);
 	free(randlist_dupes);
+	set_bkg_tile_xy(2,5,WHITE_TILE);
 	free(randlist_order);
+	set_bkg_tile_xy(2,4,WHITE_TILE);
 	free(faces);
 }

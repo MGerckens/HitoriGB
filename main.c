@@ -1,18 +1,11 @@
-// Max Gerckens 10/2021
-
 #include <gb/gb.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
 #include <rand.h>
-#include <gb/crash_handler.h>
 
-#include "title_tiles.h"
-#include "title_layout.h"
-#include "board_tiles.h"
-#include "game_board_layout.h"
-#include "cursor_tile.h"
+#include "tilemaps.h"
 #include "generator.h"
 #include "queues.h"
 
@@ -61,7 +54,7 @@ restart:
 	set_bkg_tile_xy(3,1,32);
 	if(board_size%2){move_bkg(4,4);}
 	initarand(clock());
-
+	set_bkg_tile_xy(2,2,0);
 	generate_board();
 	
 	
@@ -269,17 +262,23 @@ bool check_solution(){
 	
 	for(i = 0; i < board_size; i++){ //if any row or column has a duplicate, solution is false
 		for(j = 0; j < board_size; j++){
-			if(col_count[j*board_size+i] > 1){return false;}
-			if(row_count[j*board_size+i] > 1){return false;}
+			if(col_count[j*board_size+i] > 1){goto retfalse;}
+			if(row_count[j*board_size+i] > 1){goto retfalse;}
 		}
 	}
 	
 	if(marks[0] != BLACK){ //use flood fill to check for contiguity
-		if(fill(0,0) < (num_tiles - black_count)){return false;}
+		if(fill(0,0) < (num_tiles - black_count)){goto retfalse;}
 	}else{
-		if(fill(0,1) < (num_tiles - black_count)){return false;}
+		if(fill(0,1) < (num_tiles - black_count)){goto retfalse;}
 	}
+	free(row_count);
+	free(col_count);
 	return true;
+retfalse:
+	free(row_count);
+	free(col_count);
+	return false;
 }
 
 #define INGRID(x,y) ((x) < board_size && (y) < board_size)
