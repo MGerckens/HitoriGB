@@ -33,7 +33,7 @@ void main(void)
 restart:
 	set_bkg_data(0,59,title_tiles); //load title screen
 	set_bkg_tiles(0,0,20,18,title_layout);
-	move_bkg(0,0);
+	move_bkg(0,0); //reset bkg location if it was offset before
 	SHOW_BKG;
 	do{}while(joypad() & J_START); //wait until start is released
 	do{title_input();}while(!(joypad() & J_START));//wait on title screen
@@ -47,16 +47,15 @@ restart:
 	set_bkg_data(0,42,board_tiles);
 	set_bkg_tiles(0,0,21,19,board_layout);
 	SHOW_BKG;
-	set_bkg_tile_xy(1,1,33); //loading indicator
+	set_bkg_tile_xy(1,1,33); //loading icon
 	set_bkg_tile_xy(2,1,31);
 	set_bkg_tile_xy(3,1,32);
-	if(board_size%2){move_bkg(4,4);}
+	if(board_size&0x01){move_bkg(4,4);} //offset bkg layer if board_size is odd, to center the board on the screen
 	initarand(clock());
-	set_bkg_tile_xy(2,2,0);
+
 	generate_board();
 	
-	
-	set_bkg_tile_xy(1,1,WHITE);
+	set_bkg_tile_xy(1,1,WHITE); //remove loading icon
 	set_bkg_tile_xy(2,1,WHITE);
 	set_bkg_tile_xy(3,1,WHITE);
 	set_sprite_data(0,2,cursor_tile); //load cursor sprite
@@ -176,7 +175,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	}
 	if(BUTTON_DOWN(J_SELECT) && BUTTON_DOWN(J_START)){ //start+select to return to title
 		retval = false;
-	}/*else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
+	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
 		if(check_solution()){
 			set_bkg_tile_xy(8,17,34);
 			set_bkg_tile_xy(9,17,35);
@@ -211,10 +210,10 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 			}
 			solution_up = false;
 		}
-	}*/
+	}
 	
 	move_sprite(0, (cursor[0]+OFFSET_X+1)*8,(cursor[1]+OFFSET_Y+2)*8); //move cursor sprite to correct location
-	if(board_size%2){scroll_sprite(0,-4,-4);}
+	if(board_size&0x01){scroll_sprite(0,-4,-4);} //offset cursor if board_size is odd
 	if(marks[cursor[1]*board_size + cursor[0]] == BLACK){ //change cursor color when on a black square to keep it visible
 		set_sprite_tile(0,1);
 	}else{
