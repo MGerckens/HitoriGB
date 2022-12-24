@@ -20,7 +20,6 @@ enum {EMPTY, BLACK, CIRCLE};
 const uint8_t WHITE = 41;
 uint8_t cursor[2] = {0,0};
 uint8_t *board, *marks, *solution;
-bool restarting = false;
 
 bool process_input();
 void title_input();
@@ -41,10 +40,9 @@ restart:
 	HIDE_BKG;
 	num_tiles = board_size*board_size; //used in a lot of loops
 	
-	
-	board = (uint8_t *)calloc( board_size, board_size*sizeof(uint8_t)); //dynamically allocate all arrays based on board size
-	marks = (uint8_t *)malloc( num_tiles*sizeof(uint8_t)); 
-	solution = (uint8_t *)calloc( num_tiles,sizeof(uint8_t));
+	board = (uint8_t *)malloc( num_tiles * sizeof(uint8_t)); //dynamically allocate all arrays based on board size
+	marks = (uint8_t *)calloc( num_tiles, sizeof(uint8_t)); 
+	solution = (uint8_t *)malloc( num_tiles * sizeof(uint8_t));
 	
 	set_bkg_data(0,42,board_tiles);
 	set_bkg_tiles(0,0,21,19,board_layout);
@@ -67,7 +65,7 @@ restart:
 	SHOW_SPRITES;
 	
 	for(int i = 0; i < num_tiles; i++){
-		marks[i] = 0; 
+		marks[i] = EMPTY; 
 		set_bkg_tile_xy((i%board_size)+OFFSET_X,(i/board_size)+OFFSET_Y,board[i]); //write generated board to screen
 	}
 	
@@ -78,7 +76,7 @@ restart:
 			free(board);
 			free(marks);
 			free(solution);
-			//board_size = 5;
+			
 			HIDE_SPRITES; //avoid tile flickering during restart
 			HIDE_BKG;
 			goto restart;
@@ -177,9 +175,8 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		}
 	}
 	if(BUTTON_DOWN(J_SELECT) && BUTTON_DOWN(J_START)){ //start+select to return to title
-		restarting = true;
 		retval = false;
-	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
+	}/*else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
 		if(check_solution()){
 			set_bkg_tile_xy(8,17,34);
 			set_bkg_tile_xy(9,17,35);
@@ -214,7 +211,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 			}
 			solution_up = false;
 		}
-	}
+	}*/
 	
 	move_sprite(0, (cursor[0]+OFFSET_X+1)*8,(cursor[1]+OFFSET_Y+2)*8); //move cursor sprite to correct location
 	if(board_size%2){scroll_sprite(0,-4,-4);}
@@ -248,8 +245,8 @@ bool check_solution(){
 	 * 5,2,5,2,1,1,3
 	 * has two involving the 6s in top left */
 	 
-	uint8_t *row_count = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));
-	uint8_t *col_count = (uint8_t *)calloc(num_tiles,sizeof(uint8_t));	
+	uint8_t *row_count = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	uint8_t *col_count = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));	
 	uint8_t black_count = 0;
 	for(i = 0; i < board_size; i++){ //store count of each number in rows and columns
 		for(j = 0; j < board_size; j++){
@@ -284,7 +281,7 @@ retfalse:
 #define INGRID(x,y) ((x) < board_size && (y) < board_size)
 uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
 	
-    bool *reachable = (bool *)calloc(num_tiles,sizeof(bool));
+    bool *reachable = (bool *)malloc(num_tiles * sizeof(bool));
     node_t *Qx = NULL;
     node_t *Qy = NULL;
     enqueue(&Qx, xi);

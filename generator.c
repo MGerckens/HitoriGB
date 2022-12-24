@@ -172,7 +172,7 @@ face_t * get_face(uint8_t x, uint8_t y){ //return face at coordinate with bounds
 }
 
 
-uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
+/*uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
 	uint8_t i,j, temp, randval, x=coord%board_size, y=coord/board_size;
 	for(i = 0; i < board_size; i++){randlist_dupes[i] = i+1;} //generate list of numbers from 1 to board_size
 	for(i = board_size; i > 0; i--){ //shuffle array
@@ -195,23 +195,22 @@ found:
 	rownums[y*board_size + j-1]++; //update counters with newly assigned number
 	colnums[x*board_size + j-1]++;
 	return j; 
-}
+}*/
 
 
 void generate_board(){
 	init_faces();
 	//set_bkg_tile_xy(4,1,0);
     uint8_t i,j,x,y, randval, temp;
-	randlist_order = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	//randlist_order = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
 	set_bkg_tile_xy(2,4,20);
-	randlist_dupes = (uint8_t *)malloc(board_size * sizeof(uint8_t));
+	//randlist_dupes = (uint8_t *)malloc(board_size * sizeof(uint8_t));
 	set_bkg_tile_xy(2,5,21);
-	colnums = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	//colnums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
 	set_bkg_tile_xy(2,6,22);
-	rownums = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
+	//rownums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
 	set_bkg_tile_xy(2,7,23);
-	//set_bkg_tile_xy(4,2,0);
-	for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to num_tiles
+	/*for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to num_tiles
 		randlist_order[i] = i;
 	}
 	for(i = num_tiles; i > 0; i--){ //shuffle array
@@ -219,32 +218,31 @@ void generate_board(){
 		temp = randlist_order[i-1];
 		randlist_order[i-1] = randlist_order[randval];
 		randlist_order[randval] = temp;
-	}
-	set_bkg_tile_xy(4,3,0);
-	for(i = num_tiles; i > 0; i--){ //attempt to blacken all squares in random order
-		blacken_square_coord(randlist_order[i]);
-	}
-	//set_bkg_tile_xy(4,4,0);
+	}*/
+	//for(i = num_tiles; i > 0; i--){ //attempt to blacken all squares in random order
+	//	blacken_square_coord(i);
+	//}
+
 	latin_generate();
-	//set_bkg_tile_xy(4,5,0);
-	for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
+
+	/*for(i = 0; i < num_tiles; i++){ //count number of times each number appears in each row and column
 		if(solution[i]){continue;} //exclude black tiles
 		j = board[i];
 		x = i%board_size;
 		y = i/board_size;
 		rownums[y*board_size + j-1]++;
 		colnums[x*board_size + j-1]++;
-	}
+	}*/
 	for(i = 0; i < num_tiles; i++){ //replace blackened squares with duplicate numbers
-		if(solution[i]){board[i] = best_duplicate(i);}
+		if(solution[i]){board[i] = 1;}
 	}
-	free(colnums);
+	//free(colnums);
 	set_bkg_tile_xy(2,6,WHITE_TILE);
-	free(rownums);
+	//free(rownums);
 	set_bkg_tile_xy(2,7,WHITE_TILE);
-	free(randlist_dupes);
+	//free(randlist_dupes);
 	set_bkg_tile_xy(2,5,WHITE_TILE);
-	free(randlist_order);
+	//free(randlist_order);
 	set_bkg_tile_xy(2,4,WHITE_TILE);
 	free(faces);
 }

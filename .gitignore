@@ -1,7 +1,9 @@
 make.bat
 hitori.gb
-romusage.exe
 a.cdb
 a.ihx
 a.map
 a.noi
+hitori.cdb
+hitori.map
+.vscode/
