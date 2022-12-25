@@ -12,12 +12,12 @@
 //offsets added to tile positions to keep board centered on screen
 #define OFFSET_X (10-(board_size/2))
 #define OFFSET_Y (9-(board_size/2))
+#define WHITE 41
 
 uint8_t board_size = 5;
 uint8_t num_tiles;
 
 enum {EMPTY, BLACK, CIRCLE};
-const uint8_t WHITE = 41;
 uint8_t cursor[2] = {0,0};
 uint8_t *board, *marks, *solution;
 
@@ -31,9 +31,10 @@ void main(void)
     DISPLAY_ON;
 	SPRITES_8x8;
 restart:
+	HIDE_WIN;
 	set_bkg_data(0,59,title_tiles); //load title screen
 	set_bkg_tiles(0,0,20,18,title_layout);
-	move_bkg(0,0); //reset bkg location if it was offset before
+	move_bkg(0,0); //reset bkg location from if it was offset before
 	SHOW_BKG;
 	do{}while(joypad() & J_START); //wait until start is released
 	do{title_input();}while(!(joypad() & J_START));//wait on title screen
@@ -50,7 +51,6 @@ restart:
 	set_bkg_tile_xy(1,1,33); //loading icon
 	set_bkg_tile_xy(2,1,31);
 	set_bkg_tile_xy(3,1,32);
-	if(board_size&0x01){move_bkg(4,4);} //offset bkg layer if board_size is odd, to center the board on the screen
 	initarand(clock());
 
 	generate_board();
@@ -58,9 +58,17 @@ restart:
 	set_bkg_tile_xy(1,1,WHITE); //remove loading icon
 	set_bkg_tile_xy(2,1,WHITE);
 	set_bkg_tile_xy(3,1,WHITE);
+	
 	set_sprite_data(0,2,cursor_tile); //load cursor sprite
 	set_sprite_tile(0,0);
+
+	set_win_tiles(0,0,21,1,board_layout);
 	
+	
+	if(board_size&0x01){move_bkg(4,4);} //offset bkg layer if board_size is odd, to center the board on the screen
+	move_win(7,136); //window coords are relative to bkg so use the offset but keep y the same, also x is offset by -7 for some reason
+
+	SHOW_WIN;
 	SHOW_SPRITES;
 	
 	for(int i = 0; i < num_tiles; i++){
@@ -115,14 +123,14 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	bool retval = true;
 	static uint8_t pressed = 0;
 	static bool solution_up = false;
-	//static bool check_up = false;
 	static uint8_t last_check = 0;
+
 	if((uint8_t)time(NULL) >= last_check+2){
-		set_bkg_tile_xy(8,17,WHITE);
-		set_bkg_tile_xy(9,17,WHITE);
-		set_bkg_tile_xy(10,17,WHITE);
-		set_bkg_tile_xy(11,17,WHITE);
-		//check_up = false;
+		move_win(7,136); //recenter window layer
+		set_win_tile_xy(8,0,WHITE);
+		set_win_tile_xy(9,0,WHITE);
+		set_win_tile_xy(10,0,WHITE);
+		set_win_tile_xy(11,0,WHITE);
 		last_check = 0;
 	}
 	if(BUTTON_DOWN(J_RIGHT)){ //move in the specified direction, with bounds checking and wraparound
@@ -175,17 +183,18 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	}
 	if(BUTTON_DOWN(J_SELECT) && BUTTON_DOWN(J_START)){ //start+select to return to title
 		retval = false;
-	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution correct 
+	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution is correct 
 		if(check_solution()){
-			set_bkg_tile_xy(8,17,34);
-			set_bkg_tile_xy(9,17,35);
-			set_bkg_tile_xy(10,17,36);
-			set_bkg_tile_xy(11,17,37);
+			set_win_tile_xy(8,0,34);
+			set_win_tile_xy(9,0,35);
+			set_win_tile_xy(10,0,36);
+			set_win_tile_xy(11,0,37);
 		}else{
-			set_bkg_tile_xy(8,17,38);
-			set_bkg_tile_xy(9,17,39);
-			set_bkg_tile_xy(10,17,40);
-			set_bkg_tile_xy(11,17,WHITE);
+			if(!last_check){scroll_win(5,0);} //center the "nope!"
+			set_win_tile_xy(8,0,38);
+			set_win_tile_xy(9,0,39);
+			set_win_tile_xy(10,0,40);
+			set_win_tile_xy(11,0,WHITE); //overwrite a previous correct, which would have written here
 		}
 		last_check = time(NULL);
 	}else if(BUTTON_DOWN(J_START)){ //display correct solution for debugging
@@ -193,7 +202,6 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 			for(uint8_t i = 0; i < board_size; i++){
 				for(uint8_t j = 0; j < board_size; j++){
 					coord = j*board_size + i;
-					//set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord]);
 					marks[coord]=solution[coord];
 					if(solution[coord] == BLACK){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,0);}
 					if(solution[coord] == CIRCLE){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord] + 15);}
