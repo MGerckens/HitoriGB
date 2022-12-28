@@ -115,8 +115,6 @@ void title_input(){
 	pressed = input;
 }
 
-
-#define CHECK(x) ((x==1) ? 1 : 0)
 bool process_input(){ //returns false if start+select is pressed, true otherwise
 	uint8_t input = joypad();
 	uint8_t coord;
@@ -231,6 +229,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	return retval;
 }
 
+#define CHECK(x) ((x==1) ? 1 : 0)
 bool check_solution(){
 	bool is_correct = true;
 	uint8_t i,j;
@@ -240,55 +239,69 @@ bool check_solution(){
 			break;
 		}
 	}
-	if(is_correct){return true;} //if perfect match, no need to check further
-	
-	/* the rest is in case of a rare board with multiple solutions, ex:
-	 * 6,3,7,3,2,1,4,
-	 * 3,1,5,4,7,5,3,
-	 * 6,6,2,1,3,3,5,
-	 * 5,4,4,7,3,5,6,
-	 * 3,7,4,3,6,6,7,
-	 * 1,5,2,2,6,4,7,
-	 * 5,2,5,2,1,1,3
-	 * has two involving the 6s in top left */
-	 
-	uint8_t *row_count = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
-	uint8_t *col_count = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));	
-	uint8_t black_count = 0;
-	for(i = 0; i < board_size; i++){ //store count of each number in rows and columns
-		for(j = 0; j < board_size; j++){
-			if(marks[j*board_size+i] != BLACK){
-				row_count[j*board_size + board[j*board_size+i]]++;
-				col_count[i*board_size + board[j*board_size+i]]++;
-			}else{black_count++;} //also count black squares for next step
-		}
-	}
-	
-	for(i = 0; i < board_size; i++){ //if any row or column has a duplicate, solution is false
-		for(j = 0; j < board_size; j++){
-			if(col_count[j*board_size+i] > 1){goto retfalse;}
-			if(row_count[j*board_size+i] > 1){goto retfalse;}
-		}
-	}
-	
-	if(marks[0] != BLACK){ //use flood fill to check for contiguity
-		if(fill(0,0) < (num_tiles - black_count)){goto retfalse;}
+	//return is_correct;
+	if(is_correct){//if perfect match, no need to check further
+		return true;
 	}else{
-		if(fill(0,1) < (num_tiles - black_count)){goto retfalse;}
+		
+		/* the rest is in case of a rare board with multiple solutions, ex:
+		* 6,3,7,3,2,1,4,
+		* 3,1,5,4,7,5,3,
+		* 6,6,2,1,3,3,5,
+		* 5,4,4,7,3,5,6,
+		* 3,7,4,3,6,6,7,
+		* 1,5,2,2,6,4,7,
+		* 5,2,5,2,1,1,3
+		* has two involving the 6s in top left */
+		
+		uint8_t *row_count = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
+		uint8_t *col_count = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));	
+		uint8_t black_count = 0;
+		for(i = 0; i < board_size; i++){ //store count of each number in rows and columns
+			for(j = 0; j < board_size; j++){
+				if(marks[j*board_size+i] != BLACK){
+					row_count[j*board_size + board[j*board_size+i]-1]++;
+					col_count[i*board_size + board[j*board_size+i]-1]++;
+				}else{black_count++;} //also count black squares for next step
+			}
+		}
+		
+		for(i = 0; i < board_size; i++){ //if any row or column has a duplicate, solution is false
+			for(j = 0; j < board_size; j++){
+				if(col_count[j*board_size+i] > 1){
+					free(row_count);
+					free(col_count);
+					return false;
+				}
+				if(row_count[j*board_size+i] > 1){
+					free(row_count);
+					free(col_count);
+					return false;
+				}
+			}
+		}
+		
+		if(marks[0] != BLACK){ //use flood fill to check for contiguity
+			if(fill(0,0) < (num_tiles - black_count)){
+				free(row_count);
+				free(col_count);
+				return false;
+			}
+		}else{
+			if(fill(0,1) < (num_tiles - black_count)){
+				free(row_count);
+				free(col_count);
+				return false;
+			}
+		}
+		free(row_count);
+		free(col_count);
+		return true;		
 	}
-	free(row_count);
-	free(col_count);
-	return true;
-retfalse:
-	free(row_count);
-	free(col_count);
-	return false;
 }
-
-#define INGRID(x,y) ((x) < board_size && (y) < board_size)
 uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
 	
-    bool *reachable = (bool *)malloc(num_tiles * sizeof(bool));
+    bool *reachable = (bool *)calloc(num_tiles, sizeof(bool));
     node_t *Qx = NULL;
     node_t *Qy = NULL;
     enqueue(&Qx, xi);
@@ -298,7 +311,7 @@ uint8_t fill(uint8_t xi, uint8_t yi){ //floodfill using two queues
     while(Qx!=NULL && Qy!=NULL){
         nx = dequeue(&Qx);
         ny = dequeue(&Qy);
-		if(!INGRID(nx,ny)){continue;}
+		if(!(nx < board_size && ny < board_size)){continue;}
         if(reachable[ny*board_size + nx] == false && marks[ny*board_size + nx] != BLACK){
             reachable[ny*board_size + nx] = true;
 			enqueue(&Qx, nx-1);

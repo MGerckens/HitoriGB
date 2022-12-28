@@ -187,13 +187,9 @@ void generate_board(){
 	init_faces();
     uint8_t i,j,x,y, randval, temp;
 	randlist_order = (uint8_t *)malloc(num_tiles * sizeof(uint8_t));
-	//set_bkg_tile_xy(2,4,20);
 	randlist_dupes = (uint8_t *)malloc(board_size * sizeof(uint8_t));
-	//set_bkg_tile_xy(2,5,21);
 	colnums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
-	//set_bkg_tile_xy(2,6,22);
 	rownums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
-	//set_bkg_tile_xy(2,7,23);
 	for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to num_tiles
 		randlist_order[i-1] = i;
 	}
