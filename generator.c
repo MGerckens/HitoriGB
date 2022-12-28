@@ -20,7 +20,7 @@ face_t *faces; //stores faces between vertices
 uint8_t *randlist_order, *randlist_dupes, *colnums, *rownums;
 
 void init_faces();
-bool blacken_square(uint8_t y, uint8_t x);
+bool blacken_square(uint8_t coord);
 void neighbors(uint8_t x, uint8_t y);
 uint8_t get_incident_faces(uint8_t x, uint8_t y);
 face_t *get_face(uint8_t x, uint8_t y);
@@ -63,12 +63,11 @@ void init_faces(){ //set up solution and faces
     }
 }
 
-inline bool blacken_square_coord(uint8_t coord){ //convert index coord to xy
-    return blacken_square(coord/board_size, coord%board_size);
-}
+bool blacken_square(uint8_t coord){ //return value not used in generation, may be used later in solution checking idk
+    uint8_t x = coord/board_size;
+	uint8_t y = coord%board_size;
 
-bool blacken_square(uint8_t x, uint8_t y){ //return value not used in generation, may be used later in solution checking idk
-    if(solution[y*board_size+x]){return false;}
+	if(solution[y*board_size+x]){return false;}
     uint8_t i;
 
     neighbors(x,y); //gets neighbor vertices and stores coords in nb_ret
@@ -160,10 +159,10 @@ face_t * get_face(uint8_t x, uint8_t y){ //return face at coordinate with bounds
 uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
 	uint8_t i,j, temp, randval, x=coord%board_size, y=coord/board_size;
 	for(i = 0; i < board_size; i++){randlist_dupes[i] = i+1;} //generate list of numbers from 1 to board_size
-	for(i = board_size; i > 0; i--){ //shuffle array
+	for(i = 0; i < board_size; i++){ //shuffle array
 		randval = (uint8_t)arand() % board_size;
-		temp = randlist_dupes[i-1];
-		randlist_dupes[i-1] = randlist_dupes[randval];
+		temp = randlist_dupes[i];
+		randlist_dupes[i] = randlist_dupes[randval];
 		randlist_dupes[randval] = temp;
 	}
 	for(i = 0; i < board_size; i++){ //prioritize numbers that appear once in the row and column, to minimize latin square characteristics
@@ -190,17 +189,17 @@ void generate_board(){
 	randlist_dupes = (uint8_t *)malloc(board_size * sizeof(uint8_t));
 	colnums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
 	rownums = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
-	for(i = num_tiles; i > 0; i--){  //generate list of numbers from 1 to num_tiles
-		randlist_order[i-1] = i;
+	for(i = 0; i < num_tiles; i++){  //generate list of numbers from 1 to num_tiles
+		randlist_order[i] = i;
 	}
-	for(i = num_tiles; i > 0; i--){ //shuffle array
-		randval = (uint8_t)arand() % board_size; 
-		temp = randlist_order[i-1];
-		randlist_order[i-1] = randlist_order[randval];
+	for(i = 0; i < num_tiles; i++){ //shuffle array
+		randval = (uint8_t)arand() % num_tiles; 
+		temp = randlist_order[i];
+		randlist_order[i] = randlist_order[randval];
 		randlist_order[randval] = temp;
 	}
-	for(i = num_tiles; i > 0; i--){ //attempt to blacken all squares in random order
-		blacken_square_coord(randlist_order[i-1]);
+	for(i = 0; i < num_tiles; i++){ //attempt to blacken all squares in random order
+		blacken_square(randlist_order[i]);
 	}
 
 	latin_generate();

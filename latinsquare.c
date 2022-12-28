@@ -37,7 +37,7 @@ void latin_generate(){
 		randlist[i] = i+1;
 	}
 	
-	for(i = board_size-1; i > 0; i--){ //shuffles list, to generate non-repeating random sequence
+	for(i = 0; i < board_size; i++){ //shuffles list, to generate non-repeating random sequence
 		rand = (uint8_t)arand() % board_size;
 		temp = randlist[i];
 		randlist[i] = randlist[rand];
