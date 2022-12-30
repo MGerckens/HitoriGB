@@ -29,7 +29,7 @@ static inline void swap_rows(uint8_t row1, uint8_t row2){ //swaps two rows on th
 
 
 void latin_generate(){
-	initarand(clock());
+    //randomizer is already seeded
     uint8_t index1, index2, i, j, rand, temp;
 	uint8_t *randlist = (uint8_t *)malloc(board_size * sizeof(uint8_t));
 	

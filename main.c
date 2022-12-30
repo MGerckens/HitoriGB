@@ -22,6 +22,7 @@ uint8_t cursor[2] = {0,0};
 uint8_t *board, *marks, *solution;
 
 bool process_input();
+void move(uint8_t input);
 void title_input();
 bool check_solution();
 uint8_t fill(uint8_t xi, uint8_t yi);
@@ -72,7 +73,6 @@ restart:
 	SHOW_SPRITES;
 	
 	for(int i = 0; i < num_tiles; i++){
-		marks[i] = EMPTY; 
 		set_bkg_tile_xy((i%board_size)+OFFSET_X,(i/board_size)+OFFSET_Y,board[i]); //write generated board to screen
 	}
 	
@@ -92,11 +92,11 @@ restart:
     }
 }
 
-#define TILE_NUM(x) (((x) <= 10) ? ((x) + 10) : ((x) + 43))
-#define BUTTON_DOWN(x) ((input & (x)) && !(pressed & (x)))
+#define TILE_NUM(x) (((x) <= 10) ? ((x) + 10) : ((x) + 43)) //number tiles aren't all together in vram
+#define BUTTON_DOWN(x) ((input & (x)) && !(last_input & (x)))
 void title_input(){
 	uint8_t input = joypad();
-	static uint8_t pressed = 0;
+	static uint8_t last_input = 0;
 	if(BUTTON_DOWN(J_LEFT)){
 		if(board_size > 5){ //update board size
 			board_size--;
@@ -112,18 +112,19 @@ void title_input(){
 		}
 	}
 	set_bkg_tile_xy(9,9,TILE_NUM(board_size)); //update display
-	pressed = input;
+	last_input = input;
 }
 
 bool process_input(){ //returns false if start+select is pressed, true otherwise
 	uint8_t input = joypad();
 	uint8_t coord;
 	bool retval = true;
-	static uint8_t pressed = 0;
+	static uint8_t last_input = 0;
 	static bool solution_up = false;
 	static uint8_t last_check = 0;
+	time_t current_time = time(NULL); //time in seconds
 
-	if((uint8_t)time(NULL) >= last_check+2){
+	if(current_time >= last_check+2){
 		move_win(7,136); //recenter window layer
 		set_win_tile_xy(8,0,WHITE);
 		set_win_tile_xy(9,0,WHITE);
@@ -131,34 +132,20 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		set_win_tile_xy(11,0,WHITE);
 		last_check = 0;
 	}
-	if(BUTTON_DOWN(J_RIGHT)){ //move in the specified direction, with bounds checking and wraparound
-		if(cursor[0] < board_size-1){
-			cursor[0]++;
-		}else{
-			cursor[0] = 0;
+	static uint8_t time_held = 0; //time the current direction on the d-pad was pressed
+	
+	if(last_input == input){
+		time_held++;
+		if((time_held > 30) && !(clock() % 4)){ //if held for less than 0.5s, skip input
+			//if longer than 0.5s, move every 3rd frame 
+			move(input);
 		}
+		
+	}else{
+		time_held = 0;
+		move(input);
 	}
-	if(BUTTON_DOWN(J_LEFT)){
-		if(cursor[0] > 0){
-			cursor[0]--;
-		}else{
-			cursor[0] = board_size-1;
-		}
-	}
-	if(BUTTON_DOWN(J_UP)){
-		if(cursor[1] > 0){
-			cursor[1]--;
-		}else{
-			cursor[1] = board_size-1;
-		}
-	}
-	if(BUTTON_DOWN(J_DOWN)){
-		if(cursor[1] < board_size-1){
-			cursor[1]++;
-		}else{
-			cursor[1] = 0;
-		}
-	}
+	
 	if(BUTTON_DOWN(J_A)){ //toggle shaded
 		coord = cursor[1]*board_size + cursor[0];
 		if(!marks[coord]){
@@ -183,18 +170,19 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		retval = false;
 	}else if(BUTTON_DOWN(J_SELECT)){ //displays if solution is correct 
 		if(check_solution()){
+			move_win(7,136);
 			set_win_tile_xy(8,0,34);
 			set_win_tile_xy(9,0,35);
 			set_win_tile_xy(10,0,36);
 			set_win_tile_xy(11,0,37);
 		}else{
-			if(!last_check){scroll_win(5,0);} //center the "nope!"
+			move_win(12,136);
 			set_win_tile_xy(8,0,38);
 			set_win_tile_xy(9,0,39);
 			set_win_tile_xy(10,0,40);
 			set_win_tile_xy(11,0,WHITE); //overwrite a previous correct, which would have written here
 		}
-		last_check = time(NULL);
+		last_check = current_time;
 	}else if(BUTTON_DOWN(J_START)){ //display correct solution for debugging
 		if(!solution_up){			
 			for(uint8_t i = 0; i < board_size; i++){
@@ -225,8 +213,42 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	}else{
 		set_sprite_tile(0,0);
 	}
-	pressed = input;	
+	last_input = input;	
 	return retval;
+}
+
+
+inline void move(uint8_t input){
+	switch(input){
+		case J_UP:
+			if(cursor[1] > 0){
+				cursor[1]--;
+			}else{
+				cursor[1] = board_size-1;
+			}
+			break;
+		case J_DOWN:
+			if(cursor[1] < board_size-1){
+				cursor[1]++;
+			}else{
+				cursor[1] = 0;
+			}
+			break;
+		case J_RIGHT:
+			if(cursor[0] < board_size-1){
+				cursor[0]++;
+			}else{
+				cursor[0] = 0;
+			}
+			break;
+		case J_LEFT:
+			if(cursor[0] > 0){
+				cursor[0]--;
+			}else{
+				cursor[0] = board_size-1;
+			}
+			break;
+	}
 }
 
 #define CHECK(x) ((x==1) ? 1 : 0)
