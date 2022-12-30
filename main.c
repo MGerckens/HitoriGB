@@ -122,7 +122,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	static uint8_t last_input = 0;
 	static bool solution_up = false;
 	static uint8_t last_check = 0;
-	time_t current_time = time(NULL); //time in seconds
+	uint8_t current_time = (uint8_t)time(NULL); //time in seconds
 
 	if(current_time >= last_check+2){
 		move_win(7,136); //recenter window layer
@@ -132,18 +132,17 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		set_win_tile_xy(11,0,WHITE);
 		last_check = 0;
 	}
+
 	static uint8_t time_held = 0; //time the current direction on the d-pad was pressed
-	
 	if(last_input == input){
 		time_held++;
-		if((time_held > 30) && !(clock() % 4)){ //if held for less than 0.5s, skip input
+		if((time_held > 20) && !(clock() % 4)){ //if held for less than 0.5s, skip input
 			//if longer than 0.5s, move every 3rd frame 
 			move(input);
 		}
-		
 	}else{
 		time_held = 0;
-		move(input);
+		move(input &~ last_input); //only use new button, stops weird behavior when switching from straight to diagonal
 	}
 	
 	if(BUTTON_DOWN(J_A)){ //toggle shaded
@@ -219,36 +218,35 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 
 
 inline void move(uint8_t input){
-	switch(input){
-		case J_UP:
-			if(cursor[1] > 0){
-				cursor[1]--;
-			}else{
-				cursor[1] = board_size-1;
-			}
-			break;
-		case J_DOWN:
-			if(cursor[1] < board_size-1){
-				cursor[1]++;
-			}else{
-				cursor[1] = 0;
-			}
-			break;
-		case J_RIGHT:
-			if(cursor[0] < board_size-1){
-				cursor[0]++;
-			}else{
-				cursor[0] = 0;
-			}
-			break;
-		case J_LEFT:
-			if(cursor[0] > 0){
-				cursor[0]--;
-			}else{
-				cursor[0] = board_size-1;
-			}
-			break;
+	if(input & J_RIGHT){ 
+		if(cursor[0] < board_size-1){
+			cursor[0]++;
+		}else{
+			cursor[0] = 0;
+		}
 	}
+	if(input & J_LEFT){
+		if(cursor[0] > 0){
+			cursor[0]--;
+		}else{
+			cursor[0] = board_size-1;
+		}
+	}
+	if(input & J_UP){
+		if(cursor[1] > 0){
+			cursor[1]--;
+		}else{
+			cursor[1] = board_size-1;
+		}
+	}
+	if(input & J_DOWN){
+		if(cursor[1] < board_size-1){
+			cursor[1]++;
+		}else{
+			cursor[1] = 0;
+		}
+	}
+
 }
 
 #define CHECK(x) ((x==1) ? 1 : 0)
