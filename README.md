@@ -11,4 +11,4 @@ Release includes an up-to-date .gb ROM file, or can be compiled from source by i
 
 Original game by Nikoli, 1990
 
-This is the first project I've written at anywhere near this level of complexity. Sorry if the code is too unreadable. I originally started in late September 2021, when I got sick over a weekend and saw a video about gbdk. I thought it would be a fun weekend project, and definitely did not expect to spend 2 full months of my life on it. It was fun.
+I originally started in late September 2021, when I got sick over a weekend and saw a video about gbdk. I thought it would be a fun weekend project, and proceeded to spend two months on it.
