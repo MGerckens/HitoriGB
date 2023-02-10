@@ -13,18 +13,19 @@ typedef struct Face{
     struct Face *parent;
 } face_t;
 
-const face_t infinite_face = {0, &infinite_face}; //face representing outside of board
-uint8_t nb_ret[8]; //return values of neighbors
-face_t *incident_ret[4]; //return value of get_incident_faces
+const face_t infinite_face = {0, &infinite_face}; //'infinite' face representing the outside of the board
+
+//SDCC doesn't allow returning structs from functions and chaining function pointers together is slow
+uint8_t neighbors[8]; //return values of neighbors
+face_t *incident_faces[4]; //return value of get_incident_faces
 face_t *faces; //stores faces between vertices
 uint8_t *randlist_order, *randlist_dupes, *colnums, *rownums;
 
 void init_faces();
-bool blacken_square(uint8_t coord);
-void neighbors(uint8_t x, uint8_t y);
+void blacken_square(uint8_t coord);
+void get_neighbors(uint8_t x, uint8_t y);
 uint8_t get_incident_faces(uint8_t x, uint8_t y);
 face_t *get_face(uint8_t x, uint8_t y);
-uint8_t pop();
 
 face_t *rep(face_t *self){ //returns root of face set
 	face_t *grandparent = NULL;
@@ -42,14 +43,8 @@ inline void merge(face_t *self, face_t *other){ //combines two faces
 }
 
 void init_faces(){ //set up solution and faces
-	faces = malloc((board_size-1)*(board_size-1)*sizeof(face_t)); //freed at the end of generation
+	faces = malloc((num_tiles - 2*board_size + 1)*sizeof(face_t)); //allocates (board_size-1)^2, since (x-1)^2 = x^2-2x+1
     uint8_t i,j;
-	for(i = 0; i < 8; i++){
-		nb_ret[i] = 0;
-	}
-	for(i = 0; i < 4; i++){
-		incident_ret[i] = 0;
-	}
     for(i = 0; i < board_size; i++){
         for(j = 0; j < board_size; j++){
             solution[j*board_size+i] = 0;
@@ -63,98 +58,90 @@ void init_faces(){ //set up solution and faces
     }
 }
 
-bool blacken_square(uint8_t coord){ //return value not used in generation, may be used later in solution checking idk
-    uint8_t x = coord/board_size;
-	uint8_t y = coord%board_size;
-
-	if(solution[y*board_size+x]){return false;}
-    uint8_t i;
-
-    neighbors(x,y); //gets neighbor vertices and stores coords in nb_ret
-
-    for(i = 0; i < 8; i+=2){
-        if(nb_ret[i] != 255 && solution[nb_ret[i+1]*board_size + nb_ret[i]]){return false;} //stop if any neighbor is already black
-    }
-
-    uint8_t delta_E = 0;
-    for(i = 0; i < 8; i+=2){
-        if(nb_ret[i] != 255){delta_E++;} //count neigboring edges
-    }
-
-	uint8_t delta_F = get_incident_faces(x,y); //count neigboring faces
-	
-    if(delta_E - delta_F){return false;} //check if graph is fully connected 
-    solution[y*board_size+x] = 1;
-
-    uint8_t index = pop();
-    for(i = 0; i < 4; i++){ //merge all neighboring faces into lowest neighbor
-        merge(incident_ret[index], incident_ret[i]);
-    }
-
-    return true;
-}
-
-void neighbors(uint8_t x, uint8_t y){ //return coords of neighbors, or 255 if not on board
+void get_neighbors(uint8_t x, uint8_t y){ //return coords of neighbors, or 255 if not on board
     if(x > 0){
-        nb_ret[0] = x-1; nb_ret[1] = y;
+        neighbors[0] = x-1; neighbors[1] = y;
     }else{
-        nb_ret[0] = 255; nb_ret[1] = 255;
+        neighbors[0] = 255; neighbors[1] = 255;
     }
     if(y > 0){
-        nb_ret[2] = x; nb_ret[3] = y-1;
+        neighbors[2] = x; neighbors[3] = y-1;
     }else{
-        nb_ret[2] = 255; nb_ret[3] = 255;
+        neighbors[2] = 255; neighbors[3] = 255;
     }
     if(x < board_size-1){
-        nb_ret[4] = x+1; nb_ret[5] = y;
+        neighbors[4] = x+1; neighbors[5] = y;
     }else{
-        nb_ret[4] = 255; nb_ret[5] = 255;
+        neighbors[4] = 255; neighbors[5] = 255;
     }
     if(y < board_size-1){
-        nb_ret[6] = x; nb_ret[7] = y+1;
+        neighbors[6] = x; neighbors[7] = y+1;
     }else{
-        nb_ret[6] = 255; nb_ret[7] = 255;
+        neighbors[6] = 255; neighbors[7] = 255;
     }
 }
-
-uint8_t pop(){ //get index of lowest val neigboring face, only really matters if one is 0
-    uint8_t min = 255;
-	uint8_t retval = 0;
-    for(int8_t i = 0; i < 4; i++){
-        if(incident_ret[i]->val < min){
-            min = incident_ret[i]->val;
-			retval = i;
-        }
-    }
-	return retval;
-}
-
 
 uint8_t get_incident_faces(uint8_t x, uint8_t y){ //return all neigboring faces, and count how many are unique
-    incident_ret[0]=get_face(x-1,y-1);
+    incident_faces[0]=get_face(x-1,y-1);
 	uint8_t count = 1;
 	
-	incident_ret[1]=get_face(x-1,y);
-	if(incident_ret[1] != incident_ret[0]){count++;}
+	incident_faces[1]=get_face(x-1,y);
+	if(incident_faces[1] != incident_faces[0]){count++;}
 		
-	incident_ret[2]=get_face(x,y-1);
+	incident_faces[2]=get_face(x,y-1);
 	
-	if(incident_ret[2] != incident_ret[1] && incident_ret[2] != incident_ret[0]){count++;}
+	if(incident_faces[2] != incident_faces[1] && incident_faces[2] != incident_faces[0]){count++;}
 	
-    incident_ret[3]=get_face(x,y);
-	if(incident_ret[3] != incident_ret[2] && incident_ret[3] != incident_ret[1] && incident_ret[3] != incident_ret[0]){count++;}
+    incident_faces[3]=get_face(x,y);
+	if(incident_faces[3] != incident_faces[2] && incident_faces[3] != incident_faces[1] && incident_faces[3] != incident_faces[0]){count++;}
 	
 	return count;
 }
 
 face_t * get_face(uint8_t x, uint8_t y){ //return face at coordinate with bounds checking
     if(x<board_size-1 && y<board_size-1){ 
-		//set_bkg_tile_xy(3,5,faces[y*(board_size-1)+x].val);
 		return rep(&faces[y*(board_size-1)+x]);
 	}
     else{return &infinite_face;}
 }
 
+void blacken_square(uint8_t coord){
+    uint8_t x = coord/board_size;
+	uint8_t y = coord%board_size;
+
+	if(solution[y*board_size+x]){return;}
+    uint8_t i;
+
+    get_neighbors(x,y); //gets neighbor vertices and stores coords in neighbors
+
+    for(i = 0; i < 8; i+=2){
+        if(neighbors[i] != 255 && solution[neighbors[i+1]*board_size + neighbors[i]]){return;} //stop if any neighbor is already black
+    }
+
+    uint8_t delta_E = 0;
+    for(i = 0; i < 8; i+=2){
+        if(neighbors[i] != 255){delta_E++;} //count neigboring edges
+    }
+
+	uint8_t delta_F = get_incident_faces(x,y); //count neigboring faces
+	
+    if(delta_E - delta_F){return;} //fail if graph is not fully connected 
+    solution[y*board_size+x] = 1; //if it is still connected, mark the square as blackened 
+
+    uint8_t index = 0; //initialize index to stop compiler warning, this value is always overwritten
+	bool found = false;
+	for(int8_t i = 0; i < 4; i++){
+        if(incident_faces[i] == &infinite_face){ //check if any of the neighboring faces are merged with the infinite face
+            index = i;
+			found = true;
+        }
+    }
+	if(!found){index=0;} //if none are, merge to top-left by default. Any direction works as long as it's consistent
+
+    for(i = 0; i < 4; i++){ 
+        merge(incident_faces[index], incident_faces[i]);
+    }
+}
 
 uint8_t best_duplicate(uint8_t coord){ //picks duplicate number to assign to black tile
 	uint8_t i,j, temp, randval, x=coord%board_size, y=coord/board_size;
