@@ -13,7 +13,7 @@ typedef struct Face{
     struct Face *parent;
 } face_t;
 
-const face_t infinite_face = {0, &infinite_face}; //'infinite' face representing the outside of the board
+const face_t infinite_face = {0, &infinite_face}; //'infinite' face get_rootresenting the outside of the board
 
 //SDCC doesn't allow returning structs from functions and chaining function pointers together is slow
 uint8_t neighbors[8]; //return values of neighbors
@@ -27,19 +27,18 @@ void get_neighbors(uint8_t x, uint8_t y);
 uint8_t get_incident_faces(uint8_t x, uint8_t y);
 face_t *get_face(uint8_t x, uint8_t y);
 
-face_t *rep(face_t *self){ //returns root of face set
+face_t *get_root(face_t *self){ //returns root of face
 	face_t *grandparent = NULL;
-    while(self != self->parent){
+    while(self != self->parent){ 
 		grandparent = self->parent->parent;
         self->parent = grandparent;
         self = grandparent;
-		
     }
 	return self;
 }
 
-inline void merge(face_t *self, face_t *other){ //combines two faces
-    rep(other)->parent = rep(self);
+inline void merge(face_t *self, face_t *other){ //merges other into self by making self's root the parent of other's root
+    get_root(other)->parent = get_root(self);
 }
 
 void init_faces(){ //set up solution and faces
@@ -100,7 +99,7 @@ uint8_t get_incident_faces(uint8_t x, uint8_t y){ //return all neigboring faces,
 
 face_t * get_face(uint8_t x, uint8_t y){ //return face at coordinate with bounds checking
     if(x<board_size-1 && y<board_size-1){ 
-		return rep(&faces[y*(board_size-1)+x]);
+		return get_root(&faces[y*(board_size-1)+x]);
 	}
     else{return &infinite_face;}
 }
@@ -199,7 +198,7 @@ void generate_board(){
 		rownums[y*board_size + j-1]++;
 		colnums[x*board_size + j-1]++;
 	}
-	for(i = 0; i < num_tiles; i++){ //replace blackened squares with duplicate numbers
+	for(i = 0; i < num_tiles; i++){ //get_rootlace blackened squares with duplicate numbers
 		if(solution[i]){board[i] = best_duplicate(i);}
 	}
 	free(colnums);
