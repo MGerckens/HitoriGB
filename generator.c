@@ -13,7 +13,7 @@ typedef struct Face{
     struct Face *parent;
 } face_t;
 
-const face_t infinite_face = {0, &infinite_face}; //'infinite' face get_rootresenting the outside of the board
+const face_t infinite_face = {0, &infinite_face}; //'infinite' face representing the outside of the board
 
 //SDCC doesn't allow returning structs from functions and chaining function pointers together is slow
 uint8_t neighbors[8]; //return values of neighbors
@@ -198,7 +198,7 @@ void generate_board(){
 		rownums[y*board_size + j-1]++;
 		colnums[x*board_size + j-1]++;
 	}
-	for(i = 0; i < num_tiles; i++){ //get_rootlace blackened squares with duplicate numbers
+	for(i = 0; i < num_tiles; i++){ //replace blackened squares with duplicate numbers
 		if(solution[i]){board[i] = best_duplicate(i);}
 	}
 	free(colnums);
