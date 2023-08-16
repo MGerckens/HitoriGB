@@ -12,7 +12,9 @@
 //offsets added to tile positions to keep board centered on screen
 #define OFFSET_X (10-(board_size/2))
 #define OFFSET_Y (9-(board_size/2))
-#define WHITE 41
+
+//ID of the white tile
+#define WHITE 41 
 
 uint8_t board_size = 5;
 uint8_t num_tiles;
@@ -60,7 +62,7 @@ restart:
 	set_bkg_tile_xy(2,1,WHITE);
 	set_bkg_tile_xy(3,1,WHITE);
 	
-	set_sprite_data(0,2,cursor_tile); //load cursor sprite
+	set_sprite_data(0,2,cursor_tiles); //load cursor sprite
 	set_sprite_tile(0,0);
 
 	set_win_tiles(0,0,21,1,board_layout);
@@ -88,11 +90,10 @@ restart:
 			HIDE_BKG;
 			goto restart;
 		}
-        wait_vbl_done();
+        vsync();
     }
 }
 
-#define TILE_NUM(x) (((x) <= 10) ? ((x) + 10) : ((x) + 43)) //number tiles aren't all together in vram
 #define BUTTON_DOWN(x) ((input & (x)) && !(last_input & (x)))
 void title_input(){
 	uint8_t input = joypad();
@@ -111,7 +112,7 @@ void title_input(){
 			board_size = 5;
 		}
 	}
-	set_bkg_tile_xy(9,9,TILE_NUM(board_size)); //update display
+	set_bkg_tile_xy(9,9,board_size + 10); //update display, tile IDs 15-25 are graphics for the numbers 5-15
 	last_input = input;
 }
 
