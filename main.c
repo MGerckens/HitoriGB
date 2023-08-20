@@ -70,13 +70,12 @@ restart:
 	
 	if(board_size&0x01){move_bkg(4,4);} //offset bkg layer if board_size is odd, to center the board on the screen
 	move_win(7,136); //window coords are relative to bkg so use the offset but keep y the same, also x is offset by -7 for some reason
-
-	SHOW_WIN;
-	SHOW_SPRITES;
-	
+	move_sprite(0,(OFFSET_X+1)*8,(OFFSET_Y+2)*8);
 	for(int i = 0; i < num_tiles; i++){
 		set_bkg_tile_xy((i%board_size)+OFFSET_X,(i/board_size)+OFFSET_Y,board[i]); //write generated board to screen
 	}
+	SHOW_WIN;
+	SHOW_SPRITES;
 	
 	while(1) { //main game loop
 		if(!process_input()){ //If start+select, restart game
@@ -118,7 +117,7 @@ void title_input(){
 
 bool process_input(){ //returns false if start+select is pressed, true otherwise
 	uint8_t input = joypad();
-	uint8_t coord;
+	uint8_t coord, x, y;
 	bool retval = true;
 	static uint8_t last_input = 0;
 	static bool solution_up = false;
@@ -185,21 +184,21 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 		last_check = current_time;
 	}else if(BUTTON_DOWN(J_START)){ //display correct solution for debugging
 		if(!solution_up){			
-			for(uint8_t i = 0; i < board_size; i++){
-				for(uint8_t j = 0; j < board_size; j++){
-					coord = j*board_size + i;
+			for(x = 0; x < board_size; x++){
+				for(y = 0; y < board_size; y++){
+					coord = y*board_size + x;
 					marks[coord]=solution[coord];
-					if(solution[coord] == BLACK){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,0);}
-					if(solution[coord] == CIRCLE){set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y,board[coord] + 15);}
+					if(solution[coord] == BLACK){set_bkg_tile_xy(x+OFFSET_X,y+OFFSET_Y,0);}
+					if(solution[coord] == CIRCLE){set_bkg_tile_xy(x+OFFSET_X,y+OFFSET_Y,board[coord] + 15);}
 				}
 			}
 			solution_up = true;
 		}else{
-			for(uint8_t i = 0; i < board_size; i++){
-				for(uint8_t j = 0; j < board_size; j++){
-					coord = j*board_size + i;
+			for(x = 0; x < board_size; x++){
+				for(y = 0; y < board_size; y++){
+					coord = y*board_size + x;
 					marks[coord] = EMPTY;
-					set_bkg_tile_xy(i+OFFSET_X,j+OFFSET_Y, board[coord]);
+					set_bkg_tile_xy(x+OFFSET_X,y+OFFSET_Y, board[coord]);
 				}
 			}
 			solution_up = false;
@@ -253,9 +252,9 @@ inline void move(uint8_t input){
 #define CHECK(x) ((x==1) ? 1 : 0)
 bool check_solution(){
 	bool is_correct = true;
-	uint8_t i,j;
-	for(i = 0; i < num_tiles; i++){ //check if player marks match solution
-		if(CHECK(solution[i]) != CHECK(marks[i])){
+	uint8_t x,y;
+	for(x = 0; x < num_tiles; x++){ //check if player marks match solution
+		if(CHECK(solution[x]) != CHECK(marks[x])){
 			is_correct = false;
 			break;
 		}
@@ -278,23 +277,23 @@ bool check_solution(){
 		uint8_t *row_count = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));
 		uint8_t *col_count = (uint8_t *)calloc(num_tiles, sizeof(uint8_t));	
 		uint8_t black_count = 0;
-		for(i = 0; i < board_size; i++){ //store count of each number in rows and columns
-			for(j = 0; j < board_size; j++){
-				if(marks[j*board_size+i] != BLACK){
-					row_count[j*board_size + board[j*board_size+i]-1]++;
-					col_count[i*board_size + board[j*board_size+i]-1]++;
+		for(x = 0; x < board_size; x++){ //store count of each number in rows and columns
+			for(y = 0; y < board_size; y++){
+				if(marks[y*board_size+x] != BLACK){
+					row_count[y*board_size + board[y*board_size+x]-1]++;
+					col_count[x*board_size + board[y*board_size+x]-1]++;
 				}else{black_count++;} //also count black squares for next step
 			}
 		}
 		
-		for(i = 0; i < board_size; i++){ //if any row or column has a duplicate, solution is false
-			for(j = 0; j < board_size; j++){
-				if(col_count[j*board_size+i] > 1){
+		for(x = 0; x < board_size; x++){ //if any row or column has a duplicate, solution is false
+			for(y = 0; y < board_size; y++){
+				if(col_count[y*board_size+x] > 1){
 					free(row_count);
 					free(col_count);
 					return false;
 				}
-				if(row_count[j*board_size+i] > 1){
+				if(row_count[y*board_size+x] > 1){
 					free(row_count);
 					free(col_count);
 					return false;
