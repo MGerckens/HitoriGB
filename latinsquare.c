@@ -1,60 +1,62 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include <time.h>
 #include <rand.h>
-
+#include <gb/gb.h>
 #include "latinsquare.h"
 
-#include <gb/gb.h>
 #define SWAPS 30
 
-
-static inline void swap_cols(uint8_t col1, uint8_t col2){ //swaps two cols on the board
+void swap_cols(uint8_t col1, uint8_t col2){ //swaps two cols on the board
 	uint8_t temp;
-    for(uint8_t i = 0; i < board_size; i++){
-        temp = board[col1*board_size + i];
-        board[col1*board_size + i] = board[col2*board_size + i];
-        board[col2*board_size + i] = temp;
+    for(uint8_t x = 0; x < board_size; x++){
+        temp = board[col1*board_size + x];
+        board[col1*board_size + x] = board[col2*board_size + x];
+        board[col2*board_size + x] = temp;
     }
 }
 
-static inline void swap_rows(uint8_t row1, uint8_t row2){ //swaps two rows on the board
+void swap_rows(uint8_t row1, uint8_t row2){ //swaps two rows on the board
 	uint8_t temp;
-    for(uint8_t i = 0; i < board_size; i++){
-        temp = board[i*board_size + row1];
-        board[i*board_size + row1] = board[i*board_size + row2];
-        board[i*board_size + row2] = temp;
+    for(uint8_t y = 0; y < board_size; y++){
+        temp = board[y*board_size + row1];
+        board[y*board_size + row1] = board[y*board_size + row2];
+        board[y*board_size + row2] = temp;
     }
 }
 
 
 void latin_generate(){
     //randomizer is already seeded
-    uint8_t index1, index2, i, j, rand, temp;
-	uint8_t *randlist = (uint8_t *)malloc(board_size * sizeof(uint8_t));
+    uint8_t index1, index2, x, y, randval, temp;
+	uint8_t * randlist = malloc(board_size * sizeof(uint8_t));
 	
-	for(i = 0; i < board_size; i++){ //initialize list of numbers
-		randlist[i] = i+1;
+	for(x = 0; x < board_size; x++){ //initialize list of numbers
+		randlist[x] = x+1;
 	}
 	
-	for(i = 0; i < board_size; i++){ //shuffles list, to generate non-repeating random sequence
-		rand = (uint8_t)arand() % board_size;
-		temp = randlist[i];
-		randlist[i] = randlist[rand];
-		randlist[rand] = temp;
+	for(x = 0; x < board_size; x++){ //shuffles list, to generate non-repeating random sequence
+		randval = arand() % board_size;
+		temp = randlist[x];
+		randlist[x] = randlist[randval];
+		randlist[randval] = temp;
 	}
 	
-    for(i = 0; i < board_size; i++){ //assigns numbers in list to board column, offset by row
-        for (j = 0; j < board_size; j++) {
-            board[i*board_size + j] = randlist[(i + j) % board_size];
+    for(x = 0; x < board_size; x++){ //assigns numbers in list to board column, offset by row
+        for (y = 0; y < board_size; y++) {
+            board[y*board_size + x] = randlist[(x + y) % board_size];
         }
     }
 
-    for(i = 0; i < SWAPS; i++){ //shuffle the rows and columns, to be less predictable
-        index1 = (uint8_t)arand() % board_size;
-        do{index2 = (uint8_t)arand() % board_size;}while(index1 == index2);
-        swap_rows(index1, index2);
-		swap_cols(index1, index2);
+    for(x = 0; x < SWAPS; x++){ //shuffle the rows and columns
+        index1 = arand() % board_size;
+        index2 = arand() % board_size;
+        if(!(rand()&0x01)){ //swap columns or rows at random
+            swap_cols(index1, index2);
+        }else{
+            swap_rows(index1, index2);
+        }
     }
+
 	free(randlist);
 }
+
