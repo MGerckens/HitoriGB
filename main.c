@@ -25,7 +25,7 @@ uint8_t *board, *marks, *solution;
 
 bool process_input();
 void move(uint8_t input);
-void title_input();
+bool title_input();
 bool check_solution();
 uint8_t fill(uint8_t xi, uint8_t yi);
 
@@ -39,8 +39,12 @@ restart:
 	set_bkg_tiles(0,0,20,18,title_layout);
 	move_bkg(0,0); //reset bkg location from if it was offset before
 	SHOW_BKG;
-	do{}while(joypad() & J_START); //wait until start is released
-	do{title_input();}while(!(joypad() & J_START));//wait on title screen
+	set_bkg_tile_xy(9,9,board_size + 10); // fixes board size graphic not updating until start is released
+
+	do{}while(joypad()); //wait until all buttons are released
+    title_input();
+	do{}while(!title_input());//wait on title screen
+
 	HIDE_BKG;
 	num_tiles = board_size*board_size; //used in a lot of loops
 	
@@ -94,7 +98,7 @@ restart:
 }
 
 #define BUTTON_DOWN(x) ((input & (x)) && !(last_input & (x)))
-void title_input(){
+bool title_input(){
 	uint8_t input = joypad();
 	static uint8_t last_input = 0;
 	if(BUTTON_DOWN(J_LEFT)){
@@ -111,8 +115,12 @@ void title_input(){
 			board_size = 5;
 		}
 	}
+    if(BUTTON_DOWN(J_START)){
+        return true;
+    }
 	set_bkg_tile_xy(9,9,board_size + 10); //update display, tile IDs 15-25 are graphics for the numbers 5-15
 	last_input = input;
+    return false;
 }
 
 bool process_input(){ //returns false if start+select is pressed, true otherwise
@@ -137,7 +145,7 @@ bool process_input(){ //returns false if start+select is pressed, true otherwise
 	if(last_input == input){
 		time_held++;
 		if((time_held > 20) && !(clock() % 4)){ //if held for less than 0.5s, skip input
-			//if longer than 0.5s, move every 3rd frame 
+			//if longer than 0.5s, move every 4th frame 
 			move(input);
 		}
 	}else{
