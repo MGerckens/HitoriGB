@@ -1,9 +1,4 @@
 make.bat
 hitori.gb
-a.cdb
-a.ihx
-a.map
-a.noi
-hitori.cdb
-hitori.map
-.vscode/
+.vscode
+*.txt

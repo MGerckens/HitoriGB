@@ -2,9 +2,8 @@
 #ifndef LATINSQUARE_H
 #define LATINSQUARE_H
 
-extern uint8_t board_size;
-extern uint8_t *board;
+#include <stdint.h>
 
-extern void latin_generate();
+void generateLatinSquare(uint8_t* square, uint8_t size);
 
-#endif //LATINSQUARE_H
+#endif  // LATINSQUARE_H

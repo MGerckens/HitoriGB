@@ -1,6 +1,7 @@
+#include "queues.h"
+
 #include <stdint.h>
 #include <stdlib.h>
-#include "queues.h"
 
 void enqueue(node_t **head, uint8_t val) {
     node_t *new_node = malloc(sizeof(node_t));
@@ -14,9 +15,11 @@ void enqueue(node_t **head, uint8_t val) {
 
 uint8_t dequeue(node_t **head) {
     node_t *current, *prev = NULL;
-    uint8_t retval =255; //game currently caps at 15x15, 224 maximum
+    uint8_t retval = 255;  // game currently caps at 15x15, 224 maximum
 
-    if (*head == NULL) { return retval; }
+    if (*head == NULL) {
+        return retval;
+    }
 
     current = *head;
     while (current->next != NULL) {

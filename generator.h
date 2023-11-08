@@ -1,15 +1,14 @@
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef GENERATOR_H
 #define GENERATOR_H
 
 extern uint8_t *board;
 extern uint8_t *solution;
-extern uint8_t board_size;
-extern uint8_t num_tiles;
+extern uint8_t boardSize;
+extern uint8_t numTiles;
 
-extern void generate_board();
+void generateBoard();
 
-
-#endif //GENERATOR_H
+#endif  // GENERATOR_H
