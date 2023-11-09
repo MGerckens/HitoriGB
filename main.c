@@ -41,10 +41,9 @@ restart:
     move_bkg(0, 0);
     SHOW_BKG;
 
+    // update board size once immediately, then wait for all inputs to be released
     set_bkg_tile_xy(9, 9, boardSize + 10);
-    do {
-    } while (joypad());  // wait until all buttons are released
-    titleInput();
+    waitpadup();
     do {
     } while (!titleInput());  // wait on title screen
 
@@ -144,27 +143,25 @@ bool processInput() {
     bool returnVal = false;
     static uint8_t lastInput = 0;
     static bool solutionDisplayed = false;
-    static uint8_t lastCheck = 0;
-    uint8_t currentTime = (uint8_t)time(NULL);  // time in seconds
+    static uint16_t lastSolutionCheckTime = 0;
 
-    if (currentTime >= lastCheck + 2) {
+    if (sys_time - lastSolutionCheckTime > 60) {
         move_win(7, 136);  // recenter window layer
         set_win_tile_xy(8, 0, WHITE);
         set_win_tile_xy(9, 0, WHITE);
         set_win_tile_xy(10, 0, WHITE);
         set_win_tile_xy(11, 0, WHITE);
-        lastCheck = 0;
+        lastSolutionCheckTime = sys_time;
     }
 
-    static uint8_t timeHeld = 0;  // time the current direction on the d-pad was pressed
+    static time_t lastInputChangeTime = 0;  // time the current direction on the d-pad was pressed
     if (lastInput == input) {
-        timeHeld++;
-        if ((timeHeld > 20) && !(clock() % 4)) {  // if held for less than 0.5s, skip input
+        if ((sys_time - lastInputChangeTime > 20) && !(clock() % 4)) {  // if held for less than 0.5s, skip input
             // if longer than 0.5s, move every 4th frame
             move(input);
         }
     } else {
-        timeHeld = 0;
+        lastInputChangeTime = sys_time;
         // only use newly pressed button, stops weird behavior when switching from straight to
         // diagonal
         move(input & ~lastInput);
@@ -207,7 +204,7 @@ bool processInput() {
             // overwrite a previous "correct", which would have written here
             set_win_tile_xy(11, 0, WHITE);
         }
-        lastCheck = currentTime;
+        lastSolutionCheckTime = sys_time;
     } else if (BUTTON_DOWN(J_START)) {  // display correct solution for debugging
         if (!solutionDisplayed) {
             for (x = 0; x < boardSize; x++) {
